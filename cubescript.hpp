@@ -30,9 +30,6 @@ namespace cubescript{
 class command_stack
 {
 public:
-    typedef void (command_stack::* string_member_function)(const char *,
-                                                           std::size_t);
-    
     virtual std::size_t push_command()=0;
     virtual void push_argument_symbol(const char *, std::size_t)=0;
     virtual void push_argument()=0;
