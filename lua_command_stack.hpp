@@ -30,7 +30,7 @@ namespace cubescript{
 class lua_command_stack:public command_stack
 {
 public:
-    lua_command_stack(lua_State *);
+    lua_command_stack(lua_State *, int table_index);
     std::size_t push_command();
     void push_argument_symbol(const char *, std::size_t);
     void push_argument();
@@ -42,6 +42,7 @@ public:
     bool call(std::size_t);
 private:
     lua_State * m_state;
+    int m_table_index;
 };
 
 } //namespace cubescript

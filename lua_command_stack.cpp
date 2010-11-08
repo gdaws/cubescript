@@ -24,8 +24,8 @@
 
 namespace cubescript{
 
-lua_command_stack::lua_command_stack(lua_State * state)
- :m_state(state)
+lua_command_stack::lua_command_stack(lua_State * state, int table_index)
+ :m_state(state), m_table_index(table_index)
 {
     
 }
@@ -39,7 +39,7 @@ void lua_command_stack::push_argument_symbol(const char * value,
                                              std::size_t length)
 {
     lua_pushlstring(m_state, value, length);
-    lua_gettable(m_state, LUA_GLOBALSINDEX);
+    lua_gettable(m_state, m_table_index);
 }
 
 void lua_command_stack::push_argument()
