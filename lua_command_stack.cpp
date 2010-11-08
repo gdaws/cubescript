@@ -38,7 +38,6 @@ std::size_t lua_command_stack::push_command()
 void lua_command_stack::push_argument_symbol(const char * value,
                                              std::size_t length)
 {
-    std::cout<<std::string(value, length)<<std::endl;
     lua_pushlstring(m_state, value, length);
     lua_gettable(m_state, LUA_GLOBALSINDEX);
 }
