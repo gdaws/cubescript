@@ -229,6 +229,42 @@ bool eval_string(const char ** source_begin,
     return false;
 }
 
+static
+bool eval_interpolation_symbol(const char ** source_begin, 
+                               const char * source_end, command_stack & command)
+{
+    const char * start = *source_begin;
+    const char * cursor = start;
+    
+    for(; cursor != source_end; cursor++)
+    {
+        expression::token_id token_id = 
+            expression::symbols[static_cast<std::size_t>(*cursor)];
+        
+        if(token_id != expression::CHAR)
+        {
+            *source_begin = cursor - 1;
+            if(token_id != expression::ERROR)
+            {
+                std::size_t length = cursor - start;
+                command.push_argument_symbol(start, length);
+                return true;
+            }
+            else
+            {
+                *source_begin = cursor;
+                return false;
+            }
+        }
+    }
+    
+    std::size_t length = cursor - start;
+    command.push_argument_symbol(start, length);
+    
+    *source_begin = source_end;
+    return true;
+}
+
 static std::string decode_multiline_string(const char ** begin, const char * end
     ,const std::vector<const char *> & interpolations, command_stack & command)
 {
@@ -248,7 +284,7 @@ static std::string decode_multiline_string(const char ** begin, const char * end
         for(; *cursor == '@' && cursor != end; cursor++);
         
         if(*cursor == '(') eval_expression(&cursor, end, command);
-        else eval_symbol(&cursor, end, command);//FIXME requires whitespace
+        else eval_interpolation_symbol(&cursor, end, command);
         
         result.append(command.pop_string());
         
