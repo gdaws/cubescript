@@ -39,7 +39,7 @@ public:
     void push_argument(float);
     void push_argument(const char *, std::size_t);
     std::string pop_string();
-    void call(std::size_t);
+    bool call(std::size_t);
 private:
     lua_State * m_state;
 };

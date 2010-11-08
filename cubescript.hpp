@@ -38,7 +38,7 @@ public:
     virtual void push_argument(float)=0;
     virtual void push_argument(const char *, std::size_t)=0;
     virtual std::string pop_string()=0;
-    virtual void call(std::size_t)=0;
+    virtual bool call(std::size_t)=0;
 };
 
 bool eval_word(const char **, const char*, command_stack &);
