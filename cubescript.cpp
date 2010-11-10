@@ -201,8 +201,6 @@ eval_error eval_string(const char ** source_begin,
         switch(c)
         {
             case '"':
-                *source_begin = cursor;
-                
                 if(escape_sequence.size())
                 {
                     std::string string = decode_string(source_begin, cursor,
@@ -215,6 +213,7 @@ eval_error eval_string(const char ** source_begin,
                     command.push_argument(start, length);
                 }
                 
+                *source_begin = cursor;
                 return eval_error();
             case '\\':
             case '^':
