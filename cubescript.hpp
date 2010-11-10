@@ -41,13 +41,33 @@ public:
     virtual bool call(std::size_t)=0;
 };
 
-bool eval_word(const char **, const char*, command_stack &);
-bool eval_string(const char **, const char*, command_stack &);
-bool eval_multiline_string(const char **, const char *, command_stack &);
-bool eval_symbol(const char **, const char *, command_stack &);
-bool eval_comment(const char **, const char *, command_stack &);
-bool eval_expression(const char **, const char *, command_stack &);
-bool eval(const char **, const char *, command_stack &);
+enum eval_error_type
+{
+    EVAL_OK = 0,
+    EVAL_PARSE_ERROR,
+    EVAL_RUNTIME_ERROR
+};
+
+class eval_error
+{
+public:
+    eval_error();
+    eval_error(eval_error_type, std::string);
+    operator bool()const;
+    eval_error_type get_error_type()const;
+    const std::string & get_description()const;
+private:
+    eval_error_type m_type;
+    std::string m_description;
+};
+
+eval_error eval_word(const char **, const char*, command_stack &);
+eval_error eval_string(const char **, const char*, command_stack &);
+eval_error eval_multiline_string(const char **, const char *, command_stack &);
+eval_error eval_symbol(const char **, const char *, command_stack &);
+eval_error eval_comment(const char **, const char *, command_stack &);
+eval_error eval_expression(const char **, const char *, command_stack &);
+eval_error eval(const char **, const char *, command_stack &);
 
 } //namespace cubescript
 
