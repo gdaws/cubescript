@@ -131,7 +131,8 @@ eval_error eval_word(const char ** source_begin,
             else
             {
                 *source_begin = cursor;
-                return eval_error(EVAL_PARSE_ERROR, INVALID_CHARACTER);
+                return eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER, 
+                                  INVALID_CHARACTER);
             }
         }
         
@@ -144,7 +145,8 @@ eval_error eval_word(const char ** source_begin,
     }
     
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, "unterminated word");
+    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
+                      "unterminated word");
 }
 
 static std::string decode_string(const char ** begin, const char * end, 
@@ -223,14 +225,15 @@ eval_error eval_string(const char ** source_begin,
             case '\r':
             case '\n':
                 *source_begin = cursor;
-                return eval_error(EVAL_PARSE_ERROR, 
+                return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED,
                     "string unterminated at end of line");
             default:break;
         }
     }
     
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, "unterminated string");
+    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
+                      "unterminated string");
 }
 
 static
@@ -257,7 +260,8 @@ eval_error eval_interpolation_symbol(const char ** source_begin,
             else
             {
                 *source_begin = cursor;
-                return eval_error(EVAL_PARSE_ERROR, INVALID_CHARACTER);
+                return eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER,
+                                  INVALID_CHARACTER);
             }
         }
     }
@@ -266,7 +270,7 @@ eval_error eval_interpolation_symbol(const char ** source_begin,
     command.push_argument_symbol(start, length);
     
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, 
+    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED,
         "unterminated symbol in multi-line string");
 }
 
@@ -375,7 +379,8 @@ eval_error eval_multiline_string(const char ** source_begin,
     }
     
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, "unterminated multi-line string");
+    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
+                      "unterminated multi-line string");
 }
 
 eval_error eval_symbol(const char ** source_begin, const char * source_end,
@@ -401,13 +406,15 @@ eval_error eval_symbol(const char ** source_begin, const char * source_end,
             else
             {
                 *source_begin = cursor;
-                return eval_error(EVAL_PARSE_ERROR, INVALID_CHARACTER);
+                return eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER,
+                                  INVALID_CHARACTER);
             }
         }
     }
     
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, "unterminated symbol");
+    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
+                      "unterminated symbol");
 }
 
 eval_error eval_comment(const char ** source_begin, const char * source_end,
@@ -417,7 +424,7 @@ eval_error eval_comment(const char ** source_begin, const char * source_end,
     const char * start = (*source_begin) + 1;
     *source_begin = start;
     
-    if(*start != '/') return eval_error(EVAL_PARSE_ERROR, 
+    if(*start != '/') return eval_error(EVAL_PARSE_ERROR, PARSE_EXPECTED,
         "expected \"//\" at beginning of comment");
     
     start++;
@@ -435,7 +442,8 @@ eval_error eval_comment(const char ** source_begin, const char * source_end,
     }
     
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, "unterminated comment");
+    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
+                      "unterminated comment");
 }
 
 eval_error eval_expression(const char ** source_begin, const char * source_end,
@@ -470,25 +478,27 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
                 *source_begin = cursor;
                 
                 if(*start != '(') 
-                    return eval_error(EVAL_PARSE_ERROR, "unexpected ')'");
+                    return eval_error(EVAL_PARSE_ERROR, 
+                        PARSE_UNEXPECTED, "unexpected ')'");
                 
                 return eval_error(
-                    command.call(call_index) ? EVAL_OK : EVAL_RUNTIME_ERROR, 
-                    "");
+                    command.call(call_index) ? EVAL_OK : EVAL_RUNTIME_ERROR,
+                    0, "");
             }
             case expression::END_ROOT_EXPRESSION:
                 
                 if(is_subexpr)
                 {
                     if(c == ';') 
-                        return eval_error(EVAL_PARSE_ERROR, "unexpected ';'");
+                        return eval_error(EVAL_PARSE_ERROR, 
+                            PARSE_UNEXPECTED, "unexpected ';'");
                     break;
                 }
                 
                 *source_begin = cursor;
                 return eval_error(
-                    command.call(call_index) ? EVAL_OK : EVAL_RUNTIME_ERROR, 
-                    "");
+                    command.call(call_index) ? EVAL_OK : EVAL_RUNTIME_ERROR,
+                    0, "");
             case expression::START_EXPRESSION:
             {
                 eval_error err = eval_expression(&cursor, source_end, command);
@@ -538,22 +548,35 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
             case expression::ERROR:
             default:
                 *source_begin = cursor;
-                return eval_error(EVAL_PARSE_ERROR, INVALID_CHARACTER);
+                return eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER, 
+                                  INVALID_CHARACTER);
         }
     }
 
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, "unterminated expression");
+    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
+                      "unterminated expression");
+}
+
+eval_error eval(const char ** source_begin, const char * source_end, 
+                command_stack & stack)
+{
+    eval_error error;
+    while(!error && *source_begin < source_end)
+    {
+        error = eval_expression(source_begin, source_end, stack);
+    }
+    return error;
 }
 
 eval_error::eval_error()
- :m_type(EVAL_OK)
+ :m_type(EVAL_OK), m_code(0)
 {
     
 }
 
-eval_error::eval_error(eval_error_type type, std::string description)
- :m_type(type), m_description(description)
+eval_error::eval_error(eval_error_type type, int code, std::string description)
+ :m_type(type), m_code(0), m_description(description)
 {
     
 }
@@ -571,6 +594,11 @@ eval_error::operator eval_error_type()const
 eval_error_type eval_error::get_error_type()const
 {
     return m_type;
+}
+
+int eval_error::get_error_code()const
+{
+    return m_code;
 }
 
 const std::string & eval_error::get_description()const

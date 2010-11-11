@@ -48,17 +48,28 @@ enum eval_error_type
     EVAL_RUNTIME_ERROR
 };
 
+enum parse_errors
+{
+    PARSE_OK = 0,            // No errors
+    PARSE_UNTERMINATED,      // Parse was incomplete
+    PARSE_INVALID_CHARACTER, // Unknown character
+    PARSE_EXPECTED,          // Expected a character sequence
+    PARSE_UNEXPECTED         // Unexpected character (used in the wrong place) 
+};
+
 class eval_error
 {
 public:
     eval_error();
-    eval_error(eval_error_type, std::string);
+    eval_error(eval_error_type, int, std::string);
     operator bool()const;
     operator eval_error_type()const;
     eval_error_type get_error_type()const;
+    int get_error_code()const;
     const std::string & get_description()const;
 private:
     eval_error_type m_type;
+    int m_code;
     std::string m_description;
 };
 
