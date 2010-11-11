@@ -442,7 +442,13 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
                       command_stack & command)
 {
     const char * start = *source_begin;
-    if(*start == '(') start++;
+    
+    bool is_subexpr = false;
+    if(*start == '(')
+    {
+        start++;
+        is_subexpr = true;
+    }
     
     std::size_t call_index = command.push_command();
     bool first_argument = true;
@@ -471,6 +477,7 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
                     "");
             }
             case expression::END_ROOT_EXPRESSION:
+                if(is_subexpr) break;
                 *source_begin = cursor;
                 return eval_error(
                     command.call(call_index) ? EVAL_OK : EVAL_RUNTIME_ERROR, 
