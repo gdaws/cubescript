@@ -563,6 +563,11 @@ eval_error::operator bool()const
     return m_type != EVAL_OK;
 }
 
+eval_error::operator eval_error_type()const
+{
+    return m_type;
+}
+
 eval_error_type eval_error::get_error_type()const
 {
     return m_type;

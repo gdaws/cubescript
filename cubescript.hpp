@@ -54,6 +54,7 @@ public:
     eval_error();
     eval_error(eval_error_type, std::string);
     operator bool()const;
+    operator eval_error_type()const;
     eval_error_type get_error_type()const;
     const std::string & get_description()const;
 private:
