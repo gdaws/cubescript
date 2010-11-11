@@ -477,7 +477,14 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
                     "");
             }
             case expression::END_ROOT_EXPRESSION:
-                if(is_subexpr) break;
+                
+                if(is_subexpr)
+                {
+                    if(c == ';') 
+                        return eval_error(EVAL_PARSE_ERROR, "unexpected ';'");
+                    break;
+                }
+                
                 *source_begin = cursor;
                 return eval_error(
                     command.call(call_index) ? EVAL_OK : EVAL_RUNTIME_ERROR, 
