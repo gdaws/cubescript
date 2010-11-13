@@ -79,7 +79,7 @@ std::string lua_command_stack::pop_string()
 bool lua_command_stack::call(std::size_t index)
 {
     int status = lua_pcall(m_state, lua_gettop(m_state) - index, 1, 0);
-    return status != 0;
+    return status == 0;
 }
 
 } //namespace cubescript
