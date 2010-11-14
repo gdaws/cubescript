@@ -271,8 +271,7 @@ eval_error eval_interpolation_symbol(const char ** source_begin,
     command.push_argument_symbol(start, length);
     
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED,
-        "unterminated symbol in multi-line string");
+    return eval_error();
 }
 
 static 
