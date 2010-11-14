@@ -78,7 +78,13 @@ std::string lua_command_stack::pop_string()
 
 bool lua_command_stack::call(std::size_t index)
 {
-    int status = lua_pcall(m_state, lua_gettop(m_state) - index, 1, 0);
+    std::size_t top = lua_gettop(m_state);
+    if(index > top)
+    {
+        lua_pushnil(m_state);
+        return true;
+    }
+    int status = lua_pcall(m_state, top - index, 1, 0);
     return status == 0;
 }
 
