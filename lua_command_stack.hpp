@@ -45,6 +45,8 @@ private:
     int m_table_index;
 };
 
+int eval(lua_State * L);
+
 } //namespace cubescript
 
 #endif

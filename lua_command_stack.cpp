@@ -111,5 +111,17 @@ bool lua_command_stack::call(std::size_t index)
     return status == 0;
 }
 
+int eval(lua_State * L)
+{
+    std::size_t source_length;
+    const char * source = luaL_checklstring(L, 1, &source_length);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    lua_command_stack command(L, 2);
+    eval_error error = eval(&source, source + source_length, command);
+    lua_pushboolean(L, error.get_error_type() == EVAL_OK);
+    lua_pushvalue(L, -2);
+    return 2;
+}
+
 } //namespace cubescript
 
