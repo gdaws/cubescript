@@ -7,12 +7,30 @@
 using namespace cubescript;
 #include "lua_command_stack.hpp"
 
+static int env_table_ref = LUA_NOREF;
+
+static int set_env_table(lua_State * L)
+{
+    luaL_checktype(L, 1, LUA_TTABLE);
+    luaL_unref(L, LUA_REGISTRYINDEX, env_table_ref);
+    lua_pushvalue(L, 1);
+    env_table_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    return 0;
+}
+
 int main(int, char**)
 {
     lua_State * L = luaL_newstate();
     luaL_openlibs(L);
     
-    lua_command_stack lua_command(L, LUA_GLOBALSINDEX);
+    luaL_Reg cubescript_functions[] = {
+        {"eval", eval},
+        {NULL, NULL}
+    };
+    luaL_register(L, "cubescript", cubescript_functions);
+    
+    lua_pushcfunction(L, set_env_table);
+    lua_setglobal(L, "set_env_table");
     
     std::string code;
     const char * line;
@@ -28,6 +46,11 @@ int main(int, char**)
         
         if(!is_complete_code(code_c_str, code_c_str_end)) continue;
         
+        if(env_table_ref != LUA_NOREF)
+            lua_rawgeti(L, LUA_REGISTRYINDEX, env_table_ref);
+        else lua_pushvalue(L, LUA_GLOBALSINDEX);
+        
+        lua_command_stack lua_command(L, lua_gettop(L));
         eval_error error = eval(&code_c_str, code_c_str_end, lua_command);
         
         if(error && error.get_error_type() == EVAL_PARSE_ERROR)
@@ -40,6 +63,8 @@ int main(int, char**)
         std::cout<<output_prefix<<lua_command.pop_string()<<std::endl;
         
         code.clear();
+        
+        add_history(line);
     }
        
     std::cout<<std::endl;
