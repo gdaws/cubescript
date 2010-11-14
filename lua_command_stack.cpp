@@ -38,8 +38,31 @@ std::size_t lua_command_stack::push_command()
 void lua_command_stack::push_argument_symbol(const char * value,
                                              std::size_t length)
 {
-    lua_pushlstring(m_state, value, length);
-    lua_gettable(m_state, m_table_index);
+    const char * start = value;
+    const char * end = start;
+    const char * end_of_string = start + length;
+    
+    lua_pushvalue(m_state, m_table_index);
+    
+    while(end < end_of_string)
+    {
+        for(; end != end_of_string && *end !='.'; end++);
+        
+        if(start == end)
+        {
+            lua_pop(m_state, 1);
+            lua_pushnil(m_state);
+            //TODO error
+            return;
+        }
+        
+        lua_pushlstring(m_state, start, end - start);
+        lua_gettable(m_state, -2);
+        lua_replace(m_state, -2);
+        
+        start = end + 1;
+        end = start;
+    }
 }
 
 void lua_command_stack::push_argument()
