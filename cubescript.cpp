@@ -23,6 +23,7 @@
 #include <cassert>
 #include <vector>
 #include <string>
+#include <iostream>
 #include "cubescript.hpp"
 
 namespace cubescript{
@@ -98,7 +99,7 @@ eval_error eval_word(const char ** source_begin,
         expression::token_id token_id = 
             expression::symbols[static_cast<std::size_t>(c)];
         
-        if(token_id != expression::CHAR)
+        if(token_id != expression::CHAR && c != '/')
         {
             *source_begin = cursor - 1;
             std::size_t length = cursor - start;
@@ -225,7 +226,7 @@ eval_error eval_string(const char ** source_begin,
             case '\r':
             case '\n':
                 *source_begin = cursor;
-                return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED,
+                return eval_error(EVAL_PARSE_ERROR, PARSE_UNEXPECTED,
                     "string unterminated at end of line");
             default:break;
         }
@@ -495,7 +496,7 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
                     break;
                 }
                 
-                *source_begin = cursor;
+                *source_begin = cursor + 1;
                 return eval_error(
                     command.call(call_index) ? EVAL_OK : EVAL_RUNTIME_ERROR,
                     0, "");
@@ -576,7 +577,7 @@ eval_error::eval_error()
 }
 
 eval_error::eval_error(eval_error_type type, int code, std::string description)
- :m_type(type), m_code(0), m_description(description)
+ :m_type(type), m_code(code), m_description(description)
 {
     
 }
@@ -604,6 +605,29 @@ int eval_error::get_error_code()const
 const std::string & eval_error::get_description()const
 {
     return m_description;
+}
+
+class null_command_stack:public command_stack
+{
+public:
+    virtual std::size_t push_command(){return 0;}
+    virtual void push_argument_symbol(const char *, std::size_t){}
+    virtual void push_argument(){}
+    virtual void push_argument(bool){}
+    virtual void push_argument(int){}
+    virtual void push_argument(float){}
+    virtual void push_argument(const char *, std::size_t){}
+    virtual std::string pop_string(){return "";}
+    virtual bool call(std::size_t){return true;}
+};
+
+bool is_complete_code(const char * start, const char * end)
+{
+    null_command_stack null_command;
+    eval_error error = eval(&start, end, null_command);
+    return !error || 
+            error.get_error_type() != EVAL_PARSE_ERROR || 
+            error.get_error_code() != PARSE_UNTERMINATED;
 }
 
 } //namespace cubescript
