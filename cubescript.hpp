@@ -81,6 +81,8 @@ eval_error eval_comment(const char **, const char *, command_stack &);
 eval_error eval_expression(const char **, const char *, command_stack &);
 eval_error eval(const char **, const char *, command_stack &);
 
+bool is_complete_code(const char *, const char *);
+
 } //namespace cubescript
 
 #endif
