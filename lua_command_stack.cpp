@@ -90,13 +90,19 @@ void lua_command_stack::push_argument(const char * value, std::size_t length)
     lua_pushlstring(m_state, value, length);
 }
 
-std::string lua_command_stack::pop_string()
+bool lua_command_stack::pop_string(std::string & output)
 {
     std::size_t length;
     const char * string = lua_tolstring(m_state, -1, &length);
-    std::string result(string, length);
+    if(string) output = std::string(string, length);
+    else
+    {
+        output.assign("cannot represent ");
+        output.append(lua_typename(m_state, lua_type(m_state, -1)));
+        output.append(" as string");
+    }
     lua_pop(m_state, 1);
-    return result;
+    return string != NULL;
 }
 
 bool lua_command_stack::call(std::size_t index)

@@ -37,7 +37,7 @@ public:
     virtual void push_argument(int)=0;
     virtual void push_argument(float)=0;
     virtual void push_argument(const char *, std::size_t)=0;
-    virtual std::string pop_string()=0;
+    virtual bool pop_string(std::string &)=0;
     virtual bool call(std::size_t)=0;
 };
 

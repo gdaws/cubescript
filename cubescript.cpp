@@ -305,7 +305,11 @@ eval_error decode_multiline_string(const char ** begin, const char * end,
             if(error) return error;
         }
         
-        output.append(command.pop_string());
+        std::string str;
+        if(!command.pop_string(str))
+            return eval_error(EVAL_RUNTIME_ERROR, 0, str);
+        
+        output.append(str);
         
         if(cursor + 1 < end)
         {
@@ -486,7 +490,7 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
                     0, "");
             }
             case expression::END_ROOT_EXPRESSION:
-                
+            {
                 if(is_subexpr)
                 {
                     if(c == ';') 
@@ -495,10 +499,20 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
                     break;
                 }
                 
+                eval_error error;
+                bool call_ok = command.call(call_index);
+                
+                if(!call_ok)
+                {
+                    std::string error_message;
+                    bool get_error_message = command.pop_string(error_message);
+                    assert(get_error_message);
+                    error = eval_error(EVAL_RUNTIME_ERROR, 0, error_message);
+                }
+                
                 *source_begin = cursor + 1;
-                return eval_error(
-                    command.call(call_index) ? EVAL_OK : EVAL_RUNTIME_ERROR,
-                    0, "");
+                return error;
+            }
             case expression::START_EXPRESSION:
             {
                 eval_error err = eval_expression(&cursor, source_end, command);
@@ -616,7 +630,7 @@ public:
     virtual void push_argument(int){}
     virtual void push_argument(float){}
     virtual void push_argument(const char *, std::size_t){}
-    virtual std::string pop_string(){return "";}
+    virtual bool pop_string(std::string &){return true;}
     virtual bool call(std::size_t){return true;}
 };
 

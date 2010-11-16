@@ -55,12 +55,14 @@ int main(int, char**)
         
         if(error && error.get_error_type() == EVAL_PARSE_ERROR)
             std::cout<<"Parse error: "<<error.get_description()<<std::endl;
-        
-        const char * output_prefix = "";
-        if(error.get_error_type() == EVAL_RUNTIME_ERROR)
-            output_prefix = "Runtime error: ";
-        
-        std::cout<<output_prefix<<lua_command.pop_string()<<std::endl;
+        else if(error.get_error_type() == EVAL_RUNTIME_ERROR)
+             std::cout<<"Runtime error: "<<error.get_description()<<std::endl;
+        else
+        {
+            std::string output;
+            if(lua_command.pop_string(output))
+                std::cout<<output<<std::endl;
+        }
         
         code.clear();
         
