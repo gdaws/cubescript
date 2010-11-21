@@ -78,7 +78,8 @@ eval_error eval_string(const char **, const char*, command_stack &);
 eval_error eval_multiline_string(const char **, const char *, command_stack &);
 eval_error eval_symbol(const char **, const char *, command_stack &);
 eval_error eval_comment(const char **, const char *, command_stack &);
-eval_error eval_expression(const char **, const char *, command_stack &);
+eval_error eval_expression(const char **, const char *, command_stack &, 
+                           bool is_sub_expression = false);
 eval_error eval(const char **, const char *, command_stack &);
 
 bool is_complete_code(const char *, const char *);

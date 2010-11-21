@@ -451,15 +451,14 @@ eval_error eval_comment(const char ** source_begin, const char * source_end,
 }
 
 eval_error eval_expression(const char ** source_begin, const char * source_end,
-                      command_stack & command)
+                      command_stack & command, bool is_sub_expression)
 {
     const char * start = *source_begin;
     
-    bool is_subexpr = false;
-    if(*start == '(')
+    if(is_sub_expression)
     {
+        assert(*start == '(');
         start++;
-        is_subexpr = true;
     }
     
     std::size_t call_index = command.push_command();
@@ -478,10 +477,9 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
                 break;
             case expression::END_EXPRESSION:
             {
-                const char * start = *source_begin;
                 *source_begin = cursor;
                 
-                if(*start != '(') 
+                if(!is_sub_expression)
                     return eval_error(EVAL_PARSE_ERROR, 
                         PARSE_UNEXPECTED, "unexpected ')'");
                 
@@ -491,7 +489,7 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
             }
             case expression::END_ROOT_EXPRESSION:
             {
-                if(is_subexpr)
+                if(is_sub_expression)
                 {
                     if(c == ';') 
                         return eval_error(EVAL_PARSE_ERROR, 
@@ -515,7 +513,8 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
             }
             case expression::START_EXPRESSION:
             {
-                eval_error err = eval_expression(&cursor, source_end, command);
+                eval_error err = eval_expression(&cursor, source_end, command, 
+                                                 true);
                 if(err) return err;
                 first_argument = false;
                 break;
