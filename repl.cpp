@@ -32,6 +32,9 @@ int main(int, char**)
     lua_pushcfunction(L, set_env_table);
     lua_setglobal(L, "set_env_table");
     
+    if(luaL_dofile(L, "./init.lua") != 0)
+        std::cerr<<lua_tostring(L, -1)<<std::endl;
+    
     std::string code;
     const char * line;
     while((line = readline(code.length() ? ">> " : "> ")))
