@@ -124,6 +124,7 @@ int eval(lua_State * L)
     luaL_checktype(L, 2, LUA_TTABLE);
     lua_command_stack command(L, 2);
     eval_error error = eval(&source, source + source_length, command);
+    lua_pop(L, 2);
     lua_pushboolean(L, error.get_error_type() == EVAL_OK);
     lua_pushvalue(L, -2);
     return 2;
