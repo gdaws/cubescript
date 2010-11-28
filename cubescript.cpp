@@ -255,8 +255,7 @@ eval_error eval_interpolation_symbol(const char ** source_begin,
             if(token_id != expression::ERROR)
             {
                 std::size_t length = cursor - start;
-                command.push_argument_symbol(start, length);
-                return eval_error();
+                return command.push_argument_symbol(start, length);
             }
             else
             {
@@ -267,11 +266,10 @@ eval_error eval_interpolation_symbol(const char ** source_begin,
         }
     }
     
-    std::size_t length = cursor - start;
-    command.push_argument_symbol(start, length);
-    
     *source_begin = source_end;
-    return eval_error();
+    
+    std::size_t length = cursor - start;
+    return command.push_argument_symbol(start, length);
 }
 
 static 
@@ -404,8 +402,7 @@ eval_error eval_symbol(const char ** source_begin, const char * source_end,
             if(token_id != expression::ERROR)
             {
                 std::size_t length = cursor - start;
-                command.push_argument_symbol(start, length);
-                return eval_error();
+                return command.push_argument_symbol(start, length);
             }
             else
             {
@@ -623,7 +620,10 @@ class null_command_stack:public command_stack
 {
 public:
     virtual std::size_t push_command(){return 0;}
-    virtual void push_argument_symbol(const char *, std::size_t){}
+    virtual eval_error push_argument_symbol(const char *, std::size_t)
+    {
+        return eval_error();
+    }
     virtual void push_argument(){}
     virtual void push_argument(bool){}
     virtual void push_argument(int){}

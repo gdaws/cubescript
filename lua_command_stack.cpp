@@ -35,8 +35,8 @@ std::size_t lua_command_stack::push_command()
     return lua_gettop(m_state) + 1;
 }
 
-void lua_command_stack::push_argument_symbol(const char * value,
-                                             std::size_t length)
+eval_error lua_command_stack::push_argument_symbol(const char * value,
+                                                   std::size_t length)
 {
     const char * start = value;
     const char * end = start;
@@ -46,15 +46,16 @@ void lua_command_stack::push_argument_symbol(const char * value,
     
     while(end < end_of_string)
     {
-        for(; end != end_of_string && *end !='.'; end++);
-        
-        if(start == end)
+        if(lua_type(m_state, -1) == LUA_TNIL)
         {
             lua_pop(m_state, 1);
-            lua_pushnil(m_state);
-            //TODO error
-            return;
+            std::stringstream format;
+            format<<"attempt to index '"<<std::string(value, start - 1)
+                  <<"' (a nil value)";
+            return eval_error(EVAL_RUNTIME_ERROR, 0, format.str());
         }
+        
+        for(; end != end_of_string && *end !='.'; end++);
         
         lua_pushlstring(m_state, start, end - start);
         lua_gettable(m_state, -2);
@@ -63,6 +64,8 @@ void lua_command_stack::push_argument_symbol(const char * value,
         start = end + 1;
         end = start;
     }
+    
+    return eval_error();
 }
 
 void lua_command_stack::push_argument()

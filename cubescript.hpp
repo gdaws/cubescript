@@ -27,20 +27,6 @@
 
 namespace cubescript{
 
-class command_stack
-{
-public:
-    virtual std::size_t push_command()=0;
-    virtual void push_argument_symbol(const char *, std::size_t)=0;
-    virtual void push_argument()=0;
-    virtual void push_argument(bool)=0;
-    virtual void push_argument(int)=0;
-    virtual void push_argument(float)=0;
-    virtual void push_argument(const char *, std::size_t)=0;
-    virtual bool pop_string(std::string &)=0;
-    virtual bool call(std::size_t)=0;
-};
-
 enum eval_error_type
 {
     EVAL_OK = 0,
@@ -61,6 +47,7 @@ class eval_error
 {
 public:
     eval_error();
+
     eval_error(eval_error_type, int, std::string);
     operator bool()const;
     operator eval_error_type()const;
@@ -71,6 +58,20 @@ private:
     eval_error_type m_type;
     int m_code;
     std::string m_description;
+};
+
+class command_stack
+{
+public:
+    virtual std::size_t push_command()=0;
+    virtual eval_error push_argument_symbol(const char *, std::size_t)=0;
+    virtual void push_argument()=0;
+    virtual void push_argument(bool)=0;
+    virtual void push_argument(int)=0;
+    virtual void push_argument(float)=0;
+    virtual void push_argument(const char *, std::size_t)=0;
+    virtual bool pop_string(std::string &)=0;
+    virtual bool call(std::size_t)=0;
 };
 
 eval_error eval_word(const char **, const char*, command_stack &);

@@ -32,7 +32,7 @@ class lua_command_stack:public command_stack
 public:
     lua_command_stack(lua_State *, int table_index);
     std::size_t push_command();
-    void push_argument_symbol(const char *, std::size_t);
+    eval_error push_argument_symbol(const char *, std::size_t);
     void push_argument();
     void push_argument(bool);
     void push_argument(int);
