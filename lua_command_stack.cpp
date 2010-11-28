@@ -20,7 +20,7 @@
   THE SOFTWARE.
 */
 #include "lua_command_stack.hpp"
-#include <iostream>
+#include <sstream>
 
 namespace cubescript{
 
@@ -97,9 +97,24 @@ bool lua_command_stack::pop_string(std::string & output)
     if(string) output = std::string(string, length);
     else
     {
-        output.assign("cannot represent ");
-        output.append(lua_typename(m_state, lua_type(m_state, -1)));
-        output.append(" as string");
+        switch(lua_type(m_state, -1))
+        {
+            case LUA_TNIL:
+                output = "nil";
+                break;
+            case LUA_TBOOLEAN:
+                output = (lua_toboolean(m_state, -1) ? "true" : "false");
+                break;
+            default:
+            {
+                std::stringstream format;
+                format<<"<"<<lua_typename(m_state, lua_type(m_state, -1))
+                      <<": "<<std::hex<<lua_topointer(m_state, -1)
+                      <<">"<<std::endl;
+                
+                output = format.str();
+            }
+        }
     }
     lua_pop(m_state, 1);
     return string != NULL;
@@ -113,7 +128,7 @@ bool lua_command_stack::call(std::size_t index)
         lua_pushnil(m_state);
         return true;
     }
-    int status = lua_pcall(m_state, top - index, 1, 0);
+    int status = lua_pcall(m_state, top - index, LUA_MULTRET, 0);
     return status == 0;
 }
 
@@ -122,12 +137,21 @@ int eval(lua_State * L)
     std::size_t source_length;
     const char * source = luaL_checklstring(L, 1, &source_length);
     luaL_checktype(L, 2, LUA_TTABLE);
+    
     lua_command_stack command(L, 2);
+    
+    int bottom = lua_gettop(L);
+    lua_pushnil(L);
+    
     eval_error error = eval(&source, source + source_length, command);
-    lua_pop(L, 2);
-    lua_pushboolean(L, error.get_error_type() == EVAL_OK);
-    lua_pushvalue(L, -2);
-    return 2;
+    
+    if(error)
+    {
+        lua_pushstring(L, error.get_description().c_str());
+        lua_replace(L, bottom + 1);
+    }
+    
+    return lua_gettop(L) - bottom;
 }
 
 } //namespace cubescript
