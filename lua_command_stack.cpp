@@ -35,8 +35,8 @@ std::size_t lua_command_stack::push_command()
     return lua_gettop(m_state) + 1;
 }
 
-eval_error lua_command_stack::push_argument_symbol(const char * value,
-                                                   std::size_t length)
+void lua_command_stack::push_argument_symbol(const char * value, 
+                                             std::size_t length)
 {
     const char * start = value;
     const char * end = start;
@@ -52,7 +52,7 @@ eval_error lua_command_stack::push_argument_symbol(const char * value,
             std::stringstream format;
             format<<"attempt to index '"<<std::string(value, start - 1)
                   <<"' (a nil value)";
-            return eval_error(EVAL_RUNTIME_ERROR, 0, format.str());
+            throw eval_error(EVAL_RUNTIME_ERROR, 0, format.str());
         }
         
         for(; end != end_of_string && *end !='.'; end++);
@@ -64,8 +64,6 @@ eval_error lua_command_stack::push_argument_symbol(const char * value,
         start = end + 1;
         end = start;
     }
-    
-    return eval_error();
 }
 
 void lua_command_stack::push_argument()
@@ -93,8 +91,9 @@ void lua_command_stack::push_argument(const char * value, std::size_t length)
     lua_pushlstring(m_state, value, length);
 }
 
-bool lua_command_stack::pop_string(std::string & output)
+std::string lua_command_stack::pop_string()
 {
+    std::string output;
     std::size_t length;
     const char * string = lua_tolstring(m_state, -1, &length);
     if(string) output = std::string(string, length);
@@ -120,19 +119,20 @@ bool lua_command_stack::pop_string(std::string & output)
         }
     }
     lua_pop(m_state, 1);
-    return true;
+    return output;
 }
 
-bool lua_command_stack::call(std::size_t index)
+void lua_command_stack::call(std::size_t index)
 {
     std::size_t top = lua_gettop(m_state);
     if(index > top)
     {
         lua_pushnil(m_state);
-        return true;
+        return;
     }
     int status = lua_pcall(m_state, top - index, LUA_MULTRET, 0);
-    return status == 0;
+    if(status != 0) 
+        throw eval_error(EVAL_RUNTIME_ERROR, 0, lua_tostring(m_state, -1));
 }
 
 namespace lua{
@@ -148,14 +148,16 @@ int eval(lua_State * L)
     int bottom = lua_gettop(L);
     lua_pushnil(L);
     
-    eval_error error = eval(&source, source + source_length, command);
-    
-    if(error)
+    try
+    {
+        eval(&source, source + source_length, command);
+    }
+    catch(const eval_error & error)
     {
         lua_pushstring(L, error.get_description().c_str());
         lua_replace(L, bottom + 1);
     }
-    
+
     return lua_gettop(L) - bottom;
 }
 

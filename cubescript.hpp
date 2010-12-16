@@ -64,24 +64,24 @@ class command_stack
 {
 public:
     virtual std::size_t push_command()=0;
-    virtual eval_error push_argument_symbol(const char *, std::size_t)=0;
+    virtual void push_argument_symbol(const char *, std::size_t)=0;
     virtual void push_argument()=0;
     virtual void push_argument(bool)=0;
     virtual void push_argument(int)=0;
     virtual void push_argument(float)=0;
     virtual void push_argument(const char *, std::size_t)=0;
-    virtual bool pop_string(std::string &)=0;
-    virtual bool call(std::size_t)=0;
+    virtual std::string pop_string()=0;
+    virtual void call(std::size_t)=0;
 };
 
-eval_error eval_word(const char **, const char*, command_stack &);
-eval_error eval_string(const char **, const char*, command_stack &);
-eval_error eval_multiline_string(const char **, const char *, command_stack &);
-eval_error eval_symbol(const char **, const char *, command_stack &);
-eval_error eval_comment(const char **, const char *, command_stack &);
-eval_error eval_expression(const char **, const char *, command_stack &, 
+void eval_word(const char **, const char*, command_stack &);
+void eval_string(const char **, const char*, command_stack &);
+void eval_multiline_string(const char **, const char *, command_stack &);
+void eval_symbol(const char **, const char *, command_stack &);
+void eval_comment(const char **, const char *, command_stack &);
+void eval_expression(const char **, const char *, command_stack &, 
                            bool is_sub_expression = false);
-eval_error eval(const char **, const char *, command_stack &);
+void eval(const char **, const char *, command_stack &);
 
 bool is_complete_code(const char *, const char *);
 

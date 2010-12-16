@@ -68,12 +68,17 @@ int main(int, char**)
         int print_function = lua_command.push_command();
         lua_rawgeti(L, LUA_REGISTRYINDEX, print_function_ref);
         
-        eval_error error = eval(&code_c_str, code_c_str_end, lua_command);
-        
-        if(error && error.get_error_type() == EVAL_PARSE_ERROR)
-            std::cout<<"Parse error: "<<error.get_description()<<std::endl;
-        else if(error.get_error_type() == EVAL_RUNTIME_ERROR)
+        try
+        {
+            eval(&code_c_str, code_c_str_end, lua_command);
+        }
+        catch(const eval_error & error)
+        {
+            if(error.get_error_type() == EVAL_PARSE_ERROR)
+                std::cout<<"Parse error: "<<error.get_description()<<std::endl;
+            else if(error.get_error_type() == EVAL_RUNTIME_ERROR)
              std::cout<<"Runtime error: "<<error.get_description()<<std::endl;
+        }
         
         if(lua_gettop(L) > bottom + 1)
             lua_command.call(print_function);

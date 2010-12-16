@@ -87,8 +87,8 @@ enum word_type{
     WORD_STRING  = 2
 };
 
-eval_error eval_word(const char ** source_begin, 
-                const char * source_end, command_stack & command)
+void eval_word(const char ** source_begin, 
+               const char * source_end, command_stack & command)
 {
     const char * start = *source_begin;
     word_type type = WORD_INTEGER;
@@ -127,12 +127,12 @@ eval_error eval_word(const char ** source_begin,
                         break;
                 }
                 
-                return eval_error();
+                return;
             }
             else
             {
                 *source_begin = cursor;
-                return eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER, 
+                throw eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER, 
                                   INVALID_CHARACTER);
             }
         }
@@ -146,8 +146,7 @@ eval_error eval_word(const char ** source_begin,
     }
     
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
-                      "unterminated word");
+    throw eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, "unterminated word");
 }
 
 static std::string decode_string(const char ** begin, const char * end, 
@@ -189,8 +188,8 @@ static std::string decode_string(const char ** begin, const char * end,
     return result;
 }
 
-eval_error eval_string(const char ** source_begin, 
-                  const char * source_end, command_stack & command)
+void eval_string(const char ** source_begin, 
+                 const char * source_end, command_stack & command)
 {
     assert(**source_begin == '"');
     const char * start = (*source_begin) + 1;
@@ -217,7 +216,7 @@ eval_error eval_string(const char ** source_begin,
                 }
                 
                 *source_begin = cursor;
-                return eval_error();
+                return;
             case '\\':
             case '^':
                 escape_sequence.push_back(cursor);
@@ -226,19 +225,19 @@ eval_error eval_string(const char ** source_begin,
             case '\r':
             case '\n':
                 *source_begin = cursor;
-                return eval_error(EVAL_PARSE_ERROR, PARSE_UNEXPECTED,
+                throw eval_error(EVAL_PARSE_ERROR, PARSE_UNEXPECTED,
                     "string unterminated at end of line");
             default:break;
         }
     }
     
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
+    throw eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
                       "unterminated string");
 }
 
 static
-eval_error eval_interpolation_symbol(const char ** source_begin, 
+void eval_interpolation_symbol(const char ** source_begin, 
                                const char * source_end, command_stack & command)
 {
     const char * start = *source_begin;
@@ -255,12 +254,12 @@ eval_error eval_interpolation_symbol(const char ** source_begin,
             if(token_id != expression::ERROR)
             {
                 std::size_t length = cursor - start;
-                return command.push_argument_symbol(start, length);
+                command.push_argument_symbol(start, length);
             }
             else
             {
                 *source_begin = cursor;
-                return eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER,
+                throw eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER,
                                   INVALID_CHARACTER);
             }
         }
@@ -269,13 +268,15 @@ eval_error eval_interpolation_symbol(const char ** source_begin,
     *source_begin = source_end;
     
     std::size_t length = cursor - start;
-    return command.push_argument_symbol(start, length);
+    command.push_argument_symbol(start, length);
 }
 
 static 
-eval_error decode_multiline_string(const char ** begin, const char * end,
-    const std::vector<const char *> & interpolations, command_stack & command,
-    std::string & output)
+void decode_multiline_string(const char ** begin, 
+                             const char * end,
+                             const std::vector<const char *> & interpolations, 
+                             command_stack & command,
+                             std::string & output)
 {
     const char * start = *begin;
     
@@ -292,21 +293,10 @@ eval_error decode_multiline_string(const char ** begin, const char * end,
         
         for(; *cursor == '@' && cursor != end; cursor++);
         
-        if(*cursor == '(')
-        {
-            eval_error error = eval_expression(&cursor, end, command);
-            if(error) return error;
-        }
-        else
-        {
-            eval_error error = eval_interpolation_symbol(&cursor, end, command);
-            if(error) return error;
-        }
+        if(*cursor == '(') eval_expression(&cursor, end, command);
+        else eval_interpolation_symbol(&cursor, end, command);
         
-        std::string str;
-        if(!command.pop_string(str))
-            return eval_error(EVAL_RUNTIME_ERROR, 0, str);
-        
+        std::string str = command.pop_string();
         output.append(str);
         
         if(cursor + 1 < end)
@@ -318,13 +308,11 @@ eval_error decode_multiline_string(const char ** begin, const char * end,
             output.append(cursor + 1, sub_end);
         }
     }
-    
-    return eval_error();
 }
 
-eval_error eval_multiline_string(const char ** source_begin,
-                                 const char * source_end,
-                                 command_stack & command)
+void eval_multiline_string(const char ** source_begin,
+                           const char * source_end,
+                           command_stack & command)
 {
     assert(**source_begin == '[');
     const char * start = (*source_begin) + 1;
@@ -349,11 +337,12 @@ eval_error eval_multiline_string(const char ** source_begin,
                     {
                         std::string string;
                         
-                        eval_error error = decode_multiline_string(
-                            source_begin, cursor, interpolations, 
-                            command, string);
-                        
-                        if(error) return error;
+                        decode_multiline_string(
+                            source_begin, 
+                            cursor,
+                            interpolations,
+                            command,
+                            string);
                         
                         command.push_argument(string.c_str(), string.length());
                     }
@@ -364,7 +353,7 @@ eval_error eval_multiline_string(const char ** source_begin,
                     }
                     
                     *source_begin = cursor;
-                    return eval_error();
+                    return;
                 }
                 break;
             case '@':
@@ -381,12 +370,13 @@ eval_error eval_multiline_string(const char ** source_begin,
     }
     
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
+    throw eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
                       "unterminated multi-line string");
 }
 
-eval_error eval_symbol(const char ** source_begin, const char * source_end,
-                  command_stack & command)
+void eval_symbol(const char ** source_begin, 
+                 const char * source_end,
+                 command_stack & command)
 {
     const char * start = *source_begin;
     if(*start == '$') *source_begin = ++start;
@@ -402,30 +392,32 @@ eval_error eval_symbol(const char ** source_begin, const char * source_end,
             if(token_id != expression::ERROR)
             {
                 std::size_t length = cursor - start;
-                return command.push_argument_symbol(start, length);
+                command.push_argument_symbol(start, length);
+                return;
             }
             else
             {
                 *source_begin = cursor;
-                return eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER,
+                throw eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER,
                                   INVALID_CHARACTER);
             }
         }
     }
     
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
+    throw eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
                       "unterminated symbol");
 }
 
-eval_error eval_comment(const char ** source_begin, const char * source_end,
-                    command_stack & command)
+void eval_comment(const char ** source_begin, 
+                  const char * source_end,
+                  command_stack & command)
 {
     assert(**source_begin == '/');
     const char * start = (*source_begin) + 1;
     *source_begin = start;
     
-    if(*start != '/') return eval_error(EVAL_PARSE_ERROR, PARSE_EXPECTED,
+    if(*start != '/') throw eval_error(EVAL_PARSE_ERROR, PARSE_EXPECTED,
         "expected \"//\" at beginning of comment");
     
     start++;
@@ -438,17 +430,19 @@ eval_error eval_comment(const char ** source_begin, const char * source_end,
         if(token_id == expression::END_ROOT_EXPRESSION)
         {
             *source_begin = cursor - 1;
-            return eval_error();
+            return;
         }
     }
     
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
+    throw eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
                       "unterminated comment");
 }
 
-eval_error eval_expression(const char ** source_begin, const char * source_end,
-                      command_stack & command, bool is_sub_expression)
+void eval_expression(const char ** source_begin, 
+                     const char * source_end,
+                     command_stack & command,
+                     bool is_sub_expression)
 {
     const char * start = *source_begin;
     
@@ -459,6 +453,7 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
     }
     
     std::size_t call_index = command.push_command();
+    
     bool first_argument = true;
     
     for(const char * cursor = start; cursor != source_end; cursor++)
@@ -477,106 +472,81 @@ eval_error eval_expression(const char ** source_begin, const char * source_end,
                 *source_begin = cursor;
                 
                 if(!is_sub_expression)
-                    return eval_error(EVAL_PARSE_ERROR, 
+                     throw eval_error(EVAL_PARSE_ERROR, 
                         PARSE_UNEXPECTED, "unexpected ')'");
                 
-                return eval_error(
-                    command.call(call_index) ? EVAL_OK : EVAL_RUNTIME_ERROR,
-                    0, "");
+                command.call(call_index);
+                return;
             }
             case expression::END_ROOT_EXPRESSION:
             {
                 if(is_sub_expression)
                 {
                     if(c == ';') 
-                        return eval_error(EVAL_PARSE_ERROR, 
+                        throw eval_error(EVAL_PARSE_ERROR, 
                             PARSE_UNEXPECTED, "unexpected ';'");
                     break;
                 }
                 
-                eval_error error;
-                bool call_ok = command.call(call_index);
-                
-                if(!call_ok)
-                {
-                    std::string error_message;
-                    bool get_error_message = command.pop_string(error_message);
-                    assert(get_error_message);
-                    error = eval_error(EVAL_RUNTIME_ERROR, 0, error_message);
-                }
-                
                 *source_begin = cursor + 1;
-                return error;
+                command.call(call_index);
+                return;
             }
             case expression::START_EXPRESSION:
             {
-                eval_error err = eval_expression(&cursor, source_end, command, 
-                                                 true);
-                if(err) return err;
+                eval_expression(&cursor, source_end, command, true);
                 first_argument = false;
                 break;
             }
             case expression::START_SYMBOL:
             {
-                eval_error err = eval_symbol(&cursor, source_end, command);
-                if(err) return err;
+                eval_symbol(&cursor, source_end, command);
                 first_argument = false;
                 break;
             }
             case expression::START_END_STRING:
             {
-                eval_error err = eval_string(&cursor, source_end, command);
-                if(err) return err;
+                eval_string(&cursor, source_end, command);
                 first_argument = false;
                 break;
             }
             case expression::START_MULTILINE_STRING:
             {
-                eval_error err = eval_multiline_string(&cursor, 
-                                                       source_end, command);
-                if(err) return err;
+                eval_multiline_string(&cursor, source_end, command);
                 first_argument = false;
                 break;
             }
             case expression::CHAR:
             {
-                eval_error err;
-                if(!first_argument) 
-                    err = eval_word(&cursor, source_end, command);
-                else 
-                    err = eval_symbol(&cursor, source_end, command);
-                if(err) return err;
+                if(!first_argument) eval_word(&cursor, source_end, command);
+                else eval_symbol(&cursor, source_end, command);
                 first_argument = false;
                 break;
             }
             case expression::START_COMMENT:
             {
-                eval_error err = eval_comment(&cursor, source_end, command);
-                if(err) return err;
+                eval_comment(&cursor, source_end, command);
                 break;
             }
             case expression::ERROR:
             default:
                 *source_begin = cursor;
-                return eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER, 
+                throw eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER, 
                                   INVALID_CHARACTER);
         }
     }
-
+    
     *source_begin = source_end;
-    return eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
+    throw eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
                       "unterminated expression");
 }
 
-eval_error eval(const char ** source_begin, const char * source_end, 
-                command_stack & stack)
+void eval(const char ** source_begin, 
+          const char * source_end, 
+          command_stack & stack)
 {
-    eval_error error;
-    while(!error && *source_begin < source_end)
-    {
-        error = eval_expression(source_begin, source_end, stack);
-    }
-    return error;
+    while(*source_begin < source_end)
+        eval_expression(source_begin, source_end, stack);
 }
 
 eval_error::eval_error()
@@ -620,26 +590,28 @@ class null_command_stack:public command_stack
 {
 public:
     virtual std::size_t push_command(){return 0;}
-    virtual eval_error push_argument_symbol(const char *, std::size_t)
-    {
-        return eval_error();
-    }
+    virtual void push_argument_symbol(const char *, std::size_t){}
     virtual void push_argument(){}
     virtual void push_argument(bool){}
     virtual void push_argument(int){}
     virtual void push_argument(float){}
     virtual void push_argument(const char *, std::size_t){}
-    virtual bool pop_string(std::string &){return true;}
-    virtual bool call(std::size_t){return true;}
+    virtual std::string pop_string(){return "";}
+    virtual void call(std::size_t){}
 };
 
 bool is_complete_code(const char * start, const char * end)
 {
-    null_command_stack null_command;
-    eval_error error = eval(&start, end, null_command);
-    return !error || 
-            error.get_error_type() != EVAL_PARSE_ERROR || 
-            error.get_error_code() != PARSE_UNTERMINATED;
+    try
+    {
+        null_command_stack null_command;
+        eval(&start, end, null_command);
+    }
+    catch(const eval_error & error)
+    {
+        return error.get_error_code() != PARSE_UNTERMINATED;
+    }
+    return true;
 }
 
 } //namespace cubescript
