@@ -120,7 +120,7 @@ bool lua_command_stack::pop_string(std::string & output)
         }
     }
     lua_pop(m_state, 1);
-    return string != NULL;
+    return true;
 }
 
 bool lua_command_stack::call(std::size_t index)
@@ -134,6 +134,8 @@ bool lua_command_stack::call(std::size_t index)
     int status = lua_pcall(m_state, top - index, LUA_MULTRET, 0);
     return status == 0;
 }
+
+namespace lua{
 
 int eval(lua_State * L)
 {
@@ -157,5 +159,6 @@ int eval(lua_State * L)
     return lua_gettop(L) - bottom;
 }
 
+} //namespace lua
 } //namespace cubescript
 

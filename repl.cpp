@@ -32,7 +32,7 @@ int main(int, char**)
     int print_function_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     
     luaL_Reg cubescript_functions[] = {
-        {"eval", eval},
+        {"eval", lua::eval},
         {NULL, NULL}
     };
     luaL_register(L, "cubescript", cubescript_functions);
@@ -67,6 +67,7 @@ int main(int, char**)
         
         int print_function = lua_command.push_command();
         lua_rawgeti(L, LUA_REGISTRYINDEX, print_function_ref);
+        
         eval_error error = eval(&code_c_str, code_c_str_end, lua_command);
         
         if(error && error.get_error_type() == EVAL_PARSE_ERROR)

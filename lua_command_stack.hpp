@@ -45,8 +45,11 @@ private:
     int m_table_index;
 };
 
+namespace lua{
+
 int eval(lua_State * L);
 
+} //namespace lua
 } //namespace cubescript
 
 #endif
