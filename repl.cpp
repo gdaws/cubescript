@@ -31,8 +31,11 @@ int main(int, char**)
     }
     int print_function_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     
+    lua::proxy_command_stack::register_metatable(L);
+    
     luaL_Reg cubescript_functions[] = {
         {"eval", lua::eval},
+        {"command_stack", &lua::proxy_command_stack::create},
         {NULL, NULL}
     };
     luaL_register(L, "cubescript", cubescript_functions);

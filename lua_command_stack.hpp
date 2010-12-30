@@ -49,6 +49,41 @@ namespace lua{
 
 int eval(lua_State * L);
 
+/*
+    For implementing command stacks in Lua
+*/
+class proxy_command_stack:public command_stack
+{
+public:
+    static const char * CLASS_NAME;
+    static int register_metatable(lua_State * L);
+    static int create(lua_State *);
+    
+    std::size_t push_command();
+    void push_argument_symbol(const char *, std::size_t);
+    void push_argument();
+    void push_argument(bool);
+    void push_argument(int);
+    void push_argument(float);
+    void push_argument(const char *, std::size_t);
+    std::string pop_string();
+    void call(std::size_t);
+private:
+    proxy_command_stack(lua_State *);
+    ~proxy_command_stack();
+    static int __gc(lua_State * L);
+    
+    void setup_push_argument_call();
+    void call_push_argument(int nargs, int nresults);
+    
+    lua_State * m_state;
+    int m_push_command;
+    int m_push_argument_symbol;
+    int m_push_argument;
+    int m_pop_string;
+    int m_call;
+};
+
 } //namespace lua
 } //namespace cubescript
 

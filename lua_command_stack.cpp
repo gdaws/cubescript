@@ -20,6 +20,7 @@
   THE SOFTWARE.
 */
 #include "lua_command_stack.hpp"
+#include "lua/pcall.hpp"
 #include <sstream>
 
 namespace cubescript{
@@ -130,9 +131,15 @@ void lua_command_stack::call(std::size_t index)
         lua_pushnil(m_state);
         return;
     }
-    int status = lua_pcall(m_state, top - index, LUA_MULTRET, 0);
-    if(status != 0) 
-        throw eval_error(EVAL_RUNTIME_ERROR, 0, lua_tostring(m_state, -1));
+    
+    int status = ::lua::pcall(m_state, top - index, LUA_MULTRET);
+    
+    if(status != 0)
+    {
+        std::string message = lua_tostring(m_state, -1);
+        lua_pop(m_state, 1);
+        throw eval_error(EVAL_RUNTIME_ERROR, 0, message);
+    }
 }
 
 namespace lua{
@@ -141,16 +148,22 @@ int eval(lua_State * L)
 {
     std::size_t source_length;
     const char * source = luaL_checklstring(L, 1, &source_length);
-    luaL_checktype(L, 2, LUA_TTABLE);
+
+    lua_command_stack lua_command(L, 2);
+    command_stack * command = &lua_command;
     
-    lua_command_stack command(L, 2);
+    if(lua_type(L, 2) != LUA_TTABLE)
+    {
+        command = reinterpret_cast<proxy_command_stack *>(
+            luaL_checkudata(L, 2, proxy_command_stack::CLASS_NAME));
+    }
     
     int bottom = lua_gettop(L);
     lua_pushnil(L);
     
     try
     {
-        eval(&source, source + source_length, command);
+        eval(&source, source + source_length, *command);
     }
     catch(const eval_error & error)
     {
@@ -159,6 +172,226 @@ int eval(lua_State * L)
     }
 
     return lua_gettop(L) - bottom;
+}
+
+proxy_command_stack::proxy_command_stack(lua_State * L)
+ :m_state(L),
+  m_push_command(LUA_NOREF),
+  m_push_argument_symbol(LUA_NOREF),
+  m_push_argument(LUA_NOREF),
+  m_pop_string(LUA_NOREF),
+  m_call(LUA_NOREF)
+{
+    
+}
+
+proxy_command_stack::~proxy_command_stack()
+{
+    luaL_unref(m_state, LUA_REGISTRYINDEX, m_push_command);
+    luaL_unref(m_state, LUA_REGISTRYINDEX, m_push_argument_symbol);
+    luaL_unref(m_state, LUA_REGISTRYINDEX, m_push_argument);
+    luaL_unref(m_state, LUA_REGISTRYINDEX, m_pop_string);
+    luaL_unref(m_state, LUA_REGISTRYINDEX, m_call);
+}
+
+int proxy_command_stack::__gc(lua_State * L)
+{
+    reinterpret_cast<proxy_command_stack *>(
+        luaL_checkudata(L, 1, CLASS_NAME))->~proxy_command_stack();
+    return 0;
+}
+
+std::size_t proxy_command_stack::push_command()
+{
+    if(m_push_command == LUA_NOREF)
+    {
+        throw eval_error(EVAL_RUNTIME_ERROR, 0, 
+            "no function bound for push command");
+    }
+    
+    lua_rawgeti(m_state, LUA_REGISTRYINDEX, m_push_command);
+
+    if(::lua::pcall(m_state, 0, 1) != 0)
+    {
+        throw eval_error(EVAL_RUNTIME_ERROR, 0,
+            "internal error in push command");
+    }
+
+    return lua_tointeger(m_state, -1);
+}
+
+void proxy_command_stack::push_argument_symbol(
+    const char * value, std::size_t value_length)
+{
+    if(m_push_argument_symbol == LUA_NOREF)
+    {
+        throw eval_error(EVAL_RUNTIME_ERROR, 0, 
+            "no function bound for push argument symbol");
+    }
+    
+    lua_rawgeti(m_state, LUA_REGISTRYINDEX, m_push_argument_symbol);
+    lua_pushlstring(m_state, value, value_length);
+    
+    if(::lua::pcall(m_state, 1, 1) != 0)
+    {
+        throw eval_error(EVAL_RUNTIME_ERROR, 0,
+            "internal error in push argument symbol");
+    }
+}
+
+void proxy_command_stack::setup_push_argument_call()
+{
+    if(m_push_argument == LUA_NOREF)
+    {
+        throw eval_error(EVAL_RUNTIME_ERROR, 0, 
+            "no function bound for push argument");
+    }
+    
+    lua_rawgeti(m_state, LUA_REGISTRYINDEX, m_push_argument);
+}
+
+void proxy_command_stack::call_push_argument(int nargs, int nresults)
+{
+    if(::lua::pcall(m_state, nargs, nresults) != 0)
+    {
+        throw eval_error(EVAL_RUNTIME_ERROR, 0,
+            "internal error in push argument");
+    }
+}
+
+void proxy_command_stack::push_argument()
+{
+    setup_push_argument_call();
+    call_push_argument(0, 0);
+}
+
+void proxy_command_stack::push_argument(bool value)
+{
+    setup_push_argument_call();
+    lua_pushboolean(m_state, value);
+    call_push_argument(1, 0);
+}
+
+void proxy_command_stack::push_argument(int value)
+{
+    setup_push_argument_call();
+    lua_pushinteger(m_state, value);
+    call_push_argument(1, 0);
+}
+
+void proxy_command_stack::push_argument(float value)
+{
+    setup_push_argument_call();
+    lua_pushnumber(m_state, value);
+    call_push_argument(1, 0);
+}
+
+void proxy_command_stack::push_argument(
+    const char * value, std::size_t value_length)
+{
+    setup_push_argument_call();
+    lua_pushlstring(m_state, value, value_length);
+    call_push_argument(1, 0);
+}
+
+std::string proxy_command_stack::pop_string()
+{
+    if(m_pop_string == LUA_NOREF)
+    {
+        throw eval_error(EVAL_RUNTIME_ERROR, 0, 
+            "no function bound for pop string");
+    }
+    
+    lua_rawgeti(m_state, LUA_REGISTRYINDEX, m_pop_string);
+    
+    if(::lua::pcall(m_state, 0, 1) != 0)
+    {
+        throw eval_error(EVAL_RUNTIME_ERROR, 0,
+            "internal error in push argument");
+    }
+    
+    return lua_tostring(m_state, -1);
+}
+
+void proxy_command_stack::call(std::size_t index)
+{
+    if(m_call == LUA_NOREF)
+    {
+        throw eval_error(EVAL_RUNTIME_ERROR, 0, 
+            "no function bound for call command");
+    }
+    
+    lua_rawgeti(m_state, LUA_REGISTRYINDEX, m_call);
+    lua_pushinteger(m_state, index);
+    
+    if(::lua::pcall(m_state, 1, 0) != 0)
+    {
+        throw eval_error(EVAL_RUNTIME_ERROR, 0,
+            "internal error in call command");
+    }
+}
+
+const char * proxy_command_stack::CLASS_NAME = "command_stack";
+
+int proxy_command_stack::register_metatable(lua_State * L)
+{
+    luaL_newmetatable(L, CLASS_NAME);
+    luaL_Reg functions[] = {
+        {"__gc", &proxy_command_stack::__gc},
+        {NULL, NULL}
+    };
+    luaL_register(L, NULL, functions);
+    lua_pop(L, 1);
+    return 0;
+}
+
+int proxy_command_stack::create(lua_State * L)
+{
+    luaL_checktype(L, 1, LUA_TTABLE);
+    
+    proxy_command_stack * object = new (lua_newuserdata(L, 
+        sizeof(proxy_command_stack))) proxy_command_stack(L);
+    
+    if(!object) return 0;
+    
+    lua_pushvalue(L, -2);
+    
+    lua_pushliteral(L, "push_command");
+    lua_gettable(L, -2);
+    if(lua_type(L, -1) == LUA_TFUNCTION)
+        object->m_push_command = luaL_ref(L, LUA_REGISTRYINDEX);
+    else lua_pop(L, 1);
+    
+    lua_pushliteral(L, "push_argument_symbol");
+    lua_gettable(L, -2);
+    if(lua_type(L, -1) == LUA_TFUNCTION)
+        object->m_push_argument_symbol = luaL_ref(L, LUA_REGISTRYINDEX);
+    else lua_pop(L, 1);
+    
+    lua_pushliteral(L, "push_argument");
+    lua_gettable(L, -2);
+    if(lua_type(L, -1) == LUA_TFUNCTION)
+        object->m_push_argument = luaL_ref(L, LUA_REGISTRYINDEX);
+    else lua_pop(L, 1);
+    
+    lua_pushliteral(L, "pop_string");
+    lua_gettable(L, -2);
+    if(lua_type(L, -1) == LUA_TFUNCTION)
+        object->m_pop_string = luaL_ref(L, LUA_REGISTRYINDEX);
+    else lua_pop(L, 1);
+    
+    lua_pushliteral(L, "call");
+    lua_gettable(L, -2);
+    if(lua_type(L, -1) == LUA_TFUNCTION)
+        object->m_call = luaL_ref(L, LUA_REGISTRYINDEX);
+    else lua_pop(L, 1);
+    
+    lua_pop(L, 1);
+    
+    luaL_getmetatable(L, CLASS_NAME);
+    lua_setmetatable(L, -2);
+    
+    return 1;
 }
 
 } //namespace lua
