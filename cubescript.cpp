@@ -250,12 +250,7 @@ void eval_interpolation_symbol(const char ** source_begin,
         
         if(token_id != expression::CHAR)
         {
-            *source_begin = cursor - 1;
-            if(token_id != expression::ERROR)
-            {
-                std::size_t length = cursor - start;
-                command.push_argument_symbol(start, length);
-            }
+            if(token_id != expression::ERROR) break;
             else
             {
                 *source_begin = cursor;
@@ -265,10 +260,10 @@ void eval_interpolation_symbol(const char ** source_begin,
         }
     }
     
-    *source_begin = source_end;
-    
     std::size_t length = cursor - start;
     command.push_argument_symbol(start, length);
+    
+    *source_begin = cursor - 1;
 }
 
 static 
@@ -280,10 +275,11 @@ void decode_multiline_string(const char ** begin,
 {
     const char * start = *begin;
     
-    output.clear();
-    output.reserve(end - start);
+    std::size_t cmd_index = command.push_command();
+    command.push_argument_symbol("@", 1);
     
-    output.append(start, interpolations[0]);
+    std::size_t length = interpolations[0] - start;
+    if(length) command.push_argument(start, length);
     
     typedef std::vector<const char *>::const_iterator iterator;
     for(iterator iter = interpolations.begin(); iter != interpolations.end();
@@ -293,11 +289,8 @@ void decode_multiline_string(const char ** begin,
         
         for(; *cursor == '@' && cursor != end; cursor++);
         
-        if(*cursor == '(') eval_expression(&cursor, end, command);
+        if(*cursor == '(') eval_expression(&cursor, end, command, true);
         else eval_interpolation_symbol(&cursor, end, command);
-        
-        std::string str = command.pop_string();
-        output.append(str);
         
         if(cursor + 1 < end)
         {
@@ -305,9 +298,13 @@ void decode_multiline_string(const char ** begin,
             if(iter + 1 != interpolations.end())
                 sub_end = *(iter + 1);
             
-            output.append(cursor + 1, sub_end);
+            cursor++;
+            length = sub_end - cursor;
+            if(length) command.push_argument(cursor, length);
         }
     }
+    
+    command.call(cmd_index);
 }
 
 void eval_multiline_string(const char ** source_begin,
@@ -344,7 +341,7 @@ void eval_multiline_string(const char ** source_begin,
                             command,
                             string);
                         
-                        command.push_argument(string.c_str(), string.length());
+                      //command.push_argument(string.c_str(), string.length());
                     }
                     else 
                     {
