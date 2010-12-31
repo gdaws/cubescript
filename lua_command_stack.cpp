@@ -22,6 +22,7 @@
 #include "lua_command_stack.hpp"
 #include "lua/pcall.hpp"
 #include <sstream>
+#include <iostream>
 
 namespace cubescript{
 
@@ -136,8 +137,18 @@ void lua_command_stack::call(std::size_t index)
     
     if(status != 0)
     {
-        std::string message = lua_tostring(m_state, -1);
-        lua_pop(m_state, 1);
+        int returned = lua_gettop(m_state) - top + 1;
+        std::string message;
+        
+        if(returned > 0)
+        {
+            const char * message_on_stack = lua_tostring(m_state, -1);
+            message = (message_on_stack ? 
+                message_on_stack : "no error message");
+            lua_pop(m_state, returned);
+        }
+        else message = "no error message";
+        
         throw eval_error(EVAL_RUNTIME_ERROR, 0, message);
     }
 }
