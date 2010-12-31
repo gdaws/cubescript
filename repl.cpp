@@ -4,10 +4,12 @@
 #include <iostream>
 #include <string>
 #include "cubescript.hpp"
-using namespace cubescript;
 #include "lua_command_stack.hpp"
+#include "lua/pcall.hpp"
 
 static int env_table_ref = LUA_NOREF;
+static int print_function_ref = LUA_NOREF;
+static int debug_traceback_function_ref = LUA_NOREF;
 
 static int set_env_table(lua_State * L)
 {
@@ -18,10 +20,24 @@ static int set_env_table(lua_State * L)
     return 0;
 }
 
+static int onerror(lua_State * L)
+{
+    lua_rawgeti(L, LUA_REGISTRYINDEX, debug_traceback_function_ref);
+    lua_pushvalue(L, -2);
+    lua_pushinteger(L, 2);
+    lua_pcall(L, 2, 1, 0);
+    
+    std::cout<<lua_tostring(L, -1)<<std::endl;
+    
+    return 0;
+}
+
 int main(int, char**)
 {
     lua_State * L = luaL_newstate();
     luaL_openlibs(L);
+    
+    lua::set_error_handler(L, onerror);
     
     lua_getglobal(L, "print");
     if(lua_type(L, -1) != LUA_TFUNCTION)
@@ -29,13 +45,17 @@ int main(int, char**)
         std::cerr<<"Startup error: _G['print'] is not a function"<<std::endl;
         return 1;
     }
-    int print_function_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    print_function_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     
-    lua::proxy_command_stack::register_metatable(L);
+    lua_getglobal(L, "debug");
+    lua_getfield(L, -1, "traceback");
+    debug_traceback_function_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    
+    cubescript::lua::proxy_command_stack::register_metatable(L);
     
     luaL_Reg cubescript_functions[] = {
-        {"eval", lua::eval},
-        {"command_stack", &lua::proxy_command_stack::create},
+        {"eval", cubescript::lua::eval},
+        {"command_stack", &cubescript::lua::proxy_command_stack::create},
         {NULL, NULL}
     };
     luaL_register(L, "cubescript", cubescript_functions);
@@ -58,7 +78,7 @@ int main(int, char**)
         const char * code_c_str = code.c_str();
         const char * code_c_str_end = code_c_str + code.length();
         
-        if(!is_complete_code(code_c_str, code_c_str_end)) continue;
+        if(!cubescript::is_complete_code(code_c_str, code_c_str_end)) continue;
         
         if(env_table_ref != LUA_NOREF)
             lua_rawgeti(L, LUA_REGISTRYINDEX, env_table_ref);
@@ -66,21 +86,21 @@ int main(int, char**)
         
         int bottom = lua_gettop(L);
         
-        lua_command_stack lua_command(L, bottom);
+        cubescript::lua_command_stack lua_command(L, bottom);
         
         int print_function = lua_command.push_command();
         lua_rawgeti(L, LUA_REGISTRYINDEX, print_function_ref);
         
         try
         {
-            eval(&code_c_str, code_c_str_end, lua_command);
+            cubescript::eval(&code_c_str, code_c_str_end, lua_command);
         }
-        catch(const eval_error & error)
+        catch(const cubescript::eval_error & error)
         {
-            if(error.get_error_type() == EVAL_PARSE_ERROR)
+            if(error.get_error_type() == cubescript::EVAL_PARSE_ERROR)
                 std::cout<<"Parse error: "<<error.get_description()<<std::endl;
-            else if(error.get_error_type() == EVAL_RUNTIME_ERROR)
-             std::cout<<"Runtime error: "<<error.get_description()<<std::endl;
+            /*else if(error.get_error_type() == cubescript::EVAL_RUNTIME_ERROR)
+             std::cout<<"Runtime error: "<<error.get_description()<<std::endl;*/
         }
         
         if(lua_gettop(L) > bottom + 1)
