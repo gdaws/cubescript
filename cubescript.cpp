@@ -297,11 +297,9 @@ void eval_interpolation_symbol(const char ** source_begin,
 }
 
 static 
-void decode_multiline_string(const char ** begin, 
-                             const char * end,
-                             const std::vector<const char *> & interpolations, 
-                             command_stack & command,
-                             std::string & output)
+void eval_interpolation_string(const char ** begin, const char * end,
+                               const std::vector<const char *> & interpolations, 
+                               command_stack & command)
 {
     const char * start = *begin;
     
@@ -362,16 +360,11 @@ void eval_multiline_string(const char ** source_begin,
                 {
                     if(interpolations.size())
                     {
-                        std::string string;
-                        
-                        decode_multiline_string(
+                        eval_interpolation_string(
                             source_begin, 
                             cursor,
                             interpolations,
-                            command,
-                            string);
-                        
-                      //command.push_argument(string.c_str(), string.length());
+                            command);
                     }
                     else 
                     {
