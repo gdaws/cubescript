@@ -54,7 +54,8 @@ void lua_command_stack::push_argument_symbol(const char * value,
             std::stringstream format;
             format<<"attempt to index '"<<std::string(value, start - 1)
                   <<"' (a nil value)";
-            throw eval_error(EVAL_RUNTIME_ERROR, 0, format.str());
+                  
+            throw command_error(format.str());
         }
         
         for(; end != end_of_string && *end !='.'; end++);
@@ -149,7 +150,7 @@ void lua_command_stack::call(std::size_t index)
         }
         else message = "no error message";
         
-        throw eval_error(EVAL_RUNTIME_ERROR, 0, message);
+        throw command_error(message);
     }
 }
 
@@ -178,11 +179,20 @@ int eval(lua_State * L)
     }
     catch(const eval_error & error)
     {
-        lua_pushstring(L, error.get_description().c_str());
+        lua_pushstring(L, error.what());
         lua_replace(L, bottom + 1);
     }
 
     return lua_gettop(L) - bottom;
+}
+
+int is_complete_code(lua_State * L)
+{
+    std::size_t code_length;
+    const char * code = luaL_checklstring(L, 1, &code_length);
+    bool complete = ::cubescript::is_complete_code(code, code + code_length);
+    lua_pushboolean(L, complete);
+    return 1;
 }
 
 proxy_command_stack::proxy_command_stack(lua_State * L)
@@ -215,19 +225,13 @@ int proxy_command_stack::__gc(lua_State * L)
 std::size_t proxy_command_stack::push_command()
 {
     if(m_push_command == LUA_NOREF)
-    {
-        throw eval_error(EVAL_RUNTIME_ERROR, 0, 
-            "no function bound for push command");
-    }
+        throw command_error("no function bound for push command");
     
     lua_rawgeti(m_state, LUA_REGISTRYINDEX, m_push_command);
 
     if(::lua::pcall(m_state, 0, 1) != 0)
-    {
-        throw eval_error(EVAL_RUNTIME_ERROR, 0,
-            "internal error in push command");
-    }
-
+        throw command_error("internal error in push command");
+    
     return lua_tointeger(m_state, -1);
 }
 
@@ -235,28 +239,19 @@ void proxy_command_stack::push_argument_symbol(
     const char * value, std::size_t value_length)
 {
     if(m_push_argument_symbol == LUA_NOREF)
-    {
-        throw eval_error(EVAL_RUNTIME_ERROR, 0, 
-            "no function bound for push argument symbol");
-    }
+        throw command_error("no function bound for push argument symbol");
     
     lua_rawgeti(m_state, LUA_REGISTRYINDEX, m_push_argument_symbol);
     lua_pushlstring(m_state, value, value_length);
     
     if(::lua::pcall(m_state, 1, 1) != 0)
-    {
-        throw eval_error(EVAL_RUNTIME_ERROR, 0,
-            "internal error in push argument symbol");
-    }
+        throw command_error("internal error in push argument symbol");
 }
 
 void proxy_command_stack::setup_push_argument_call()
 {
     if(m_push_argument == LUA_NOREF)
-    {
-        throw eval_error(EVAL_RUNTIME_ERROR, 0, 
-            "no function bound for push argument");
-    }
+        throw command_error("no function bound for push argument");
     
     lua_rawgeti(m_state, LUA_REGISTRYINDEX, m_push_argument);
 }
@@ -264,10 +259,7 @@ void proxy_command_stack::setup_push_argument_call()
 void proxy_command_stack::call_push_argument(int nargs, int nresults)
 {
     if(::lua::pcall(m_state, nargs, nresults) != 0)
-    {
-        throw eval_error(EVAL_RUNTIME_ERROR, 0,
-            "internal error in push argument");
-    }
+        throw command_error("internal error in push argument");
 }
 
 void proxy_command_stack::push_argument()
@@ -308,38 +300,26 @@ void proxy_command_stack::push_argument(
 std::string proxy_command_stack::pop_string()
 {
     if(m_pop_string == LUA_NOREF)
-    {
-        throw eval_error(EVAL_RUNTIME_ERROR, 0, 
-            "no function bound for pop string");
-    }
+        throw command_error("no function bound for pop string");
     
     lua_rawgeti(m_state, LUA_REGISTRYINDEX, m_pop_string);
     
     if(::lua::pcall(m_state, 0, 1) != 0)
-    {
-        throw eval_error(EVAL_RUNTIME_ERROR, 0,
-            "internal error in push argument");
-    }
-    
+        throw command_error("internal error in push argument");
+
     return lua_tostring(m_state, -1);
 }
 
 void proxy_command_stack::call(std::size_t index)
 {
     if(m_call == LUA_NOREF)
-    {
-        throw eval_error(EVAL_RUNTIME_ERROR, 0, 
-            "no function bound for call command");
-    }
+        throw command_error("no function bound for call command");
     
     lua_rawgeti(m_state, LUA_REGISTRYINDEX, m_call);
     lua_pushinteger(m_state, index);
     
     if(::lua::pcall(m_state, 1, 0) != 0)
-    {
-        throw eval_error(EVAL_RUNTIME_ERROR, 0,
-            "internal error in call command");
-    }
+        throw command_error("internal error in call command");
 }
 
 const char * proxy_command_stack::CLASS_NAME = "command_stack";

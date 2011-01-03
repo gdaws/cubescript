@@ -23,13 +23,10 @@
 #include <cassert>
 #include <vector>
 #include <string>
-#include <iostream>
+#include <sstream>
 #include "cubescript.hpp"
 
 namespace cubescript{
-
-// Generic parse error messages
-static const char * INVALID_CHARACTER = "invalid character";
 
 namespace expression{
 enum token_id
@@ -87,6 +84,43 @@ enum word_type{
     WORD_STRING  = 2
 };
 
+
+static void throw_unexpected(char c, const char * where)
+{
+    char buf[2];
+    buf[0] = c;
+    buf[1] = '\0';
+    
+    const char * invalid_character = buf;
+    
+    // Non-printable characters
+    std::string hex_representation;
+    if(c < 40 || c > 176)
+    {
+        std::stringstream format;
+        format<<"\\x"<<std::hex<<static_cast<int>(c);
+        hex_representation = format.str();
+        invalid_character = hex_representation.c_str();
+    }
+    
+    switch(c)
+    {
+        case '\0': invalid_character = "\\0"; break;
+        case '\a': invalid_character = "\\a"; break;
+        case '\b': invalid_character = "\\b"; break;
+        case '\t': invalid_character = "\\t"; break;
+        case '\n': invalid_character = "\\n"; break;
+        case '\f': invalid_character = "\\f"; break;
+        case '\r': invalid_character = "\\r"; break;
+        case '\"': invalid_character = "\\\""; break;
+        default:;
+    }
+    
+    std::stringstream format;
+    format<<"unexpected '"<<invalid_character<<"' in "<<where;
+    throw parse_error(format.str());
+}
+
 void eval_word(const char ** source_begin, 
                const char * source_end, command_stack & command)
 {
@@ -132,8 +166,7 @@ void eval_word(const char ** source_begin,
             else
             {
                 *source_begin = cursor;
-                throw eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER, 
-                                  INVALID_CHARACTER);
+                throw_unexpected(c, "word");
             }
         }
         
@@ -146,7 +179,7 @@ void eval_word(const char ** source_begin,
     }
     
     *source_begin = source_end;
-    throw eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, "unterminated word");
+    throw parse_incomplete();
 }
 
 static std::string decode_string(const char ** begin, const char * end, 
@@ -225,15 +258,13 @@ void eval_string(const char ** source_begin,
             case '\r':
             case '\n':
                 *source_begin = cursor;
-                throw eval_error(EVAL_PARSE_ERROR, PARSE_UNEXPECTED,
-                    "string unterminated at end of line");
+               throw parse_error("unfinished string");
             default:break;
         }
     }
     
     *source_begin = source_end;
-    throw eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
-                      "unterminated string");
+    throw parse_incomplete();
 }
 
 static
@@ -254,8 +285,7 @@ void eval_interpolation_symbol(const char ** source_begin,
             else
             {
                 *source_begin = cursor;
-                throw eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER,
-                                  INVALID_CHARACTER);
+                throw_unexpected(*cursor, "interpolation symbol");
             }
         }
     }
@@ -362,13 +392,12 @@ void eval_multiline_string(const char ** source_begin,
                 cursor--;
                 break;
             }
-            default: break;
+            default:;
         }
     }
     
     *source_begin = source_end;
-    throw eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
-                      "unterminated multi-line string");
+    throw parse_incomplete();
 }
 
 void eval_symbol(const char ** source_begin, 
@@ -395,15 +424,14 @@ void eval_symbol(const char ** source_begin,
             else
             {
                 *source_begin = cursor;
-                throw eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER,
-                                  INVALID_CHARACTER);
+                throw_unexpected(*cursor, "symbol");
             }
         }
     }
     
     *source_begin = source_end;
-    throw eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
-                      "unterminated symbol");
+    
+    throw parse_incomplete();
 }
 
 void eval_comment(const char ** source_begin, 
@@ -414,10 +442,7 @@ void eval_comment(const char ** source_begin,
     const char * start = (*source_begin) + 1;
     *source_begin = start;
     
-    if(*start != '/') throw eval_error(EVAL_PARSE_ERROR, PARSE_EXPECTED,
-        "expected \"//\" at beginning of comment");
-    
-    start++;
+    start++; // Ignore second slash character
     
     for(const char * cursor = start; cursor != source_end; cursor++)
     {
@@ -432,8 +457,8 @@ void eval_comment(const char ** source_begin,
     }
     
     *source_begin = source_end;
-    throw eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
-                      "unterminated comment");
+    
+    throw parse_incomplete();
 }
 
 void eval_expression(const char ** source_begin, 
@@ -467,11 +492,7 @@ void eval_expression(const char ** source_begin,
             case expression::END_EXPRESSION:
             {
                 *source_begin = cursor;
-                
-                if(!is_sub_expression)
-                     throw eval_error(EVAL_PARSE_ERROR, 
-                        PARSE_UNEXPECTED, "unexpected ')'");
-                
+                if(!is_sub_expression) throw_unexpected(')', "expression");
                 command.call(call_index);
                 return;
             }
@@ -479,10 +500,8 @@ void eval_expression(const char ** source_begin,
             {
                 if(is_sub_expression)
                 {
-                    if(c == ';') 
-                        throw eval_error(EVAL_PARSE_ERROR, 
-                            PARSE_UNEXPECTED, "unexpected ';'");
-                    break;
+                    if(c == ';') throw_unexpected(';', "expression");
+                    break; // Allow new lines in sub expressions
                 }
                 
                 *source_begin = cursor + 1;
@@ -528,14 +547,11 @@ void eval_expression(const char ** source_begin,
             case expression::ERROR:
             default:
                 *source_begin = cursor;
-                throw eval_error(EVAL_PARSE_ERROR, PARSE_INVALID_CHARACTER, 
-                                  INVALID_CHARACTER);
+                throw_unexpected(c, "expression");
         }
     }
     
-    *source_begin = source_end;
-    throw eval_error(EVAL_PARSE_ERROR, PARSE_UNTERMINATED, 
-                      "unterminated expression");
+    throw parse_incomplete();
 }
 
 void eval(const char ** source_begin, 
@@ -546,67 +562,58 @@ void eval(const char ** source_begin,
         eval_expression(source_begin, source_end, stack);
 }
 
-eval_error::eval_error()
- :m_type(EVAL_OK), m_code(0)
+eval_error::eval_error(const std::string & what)
+ :std::runtime_error(what)
+{
+
+}
+
+parse_error::parse_error(const std::string & what)
+ :eval_error(what)
 {
     
 }
 
-eval_error::eval_error(eval_error_type type, int code, std::string description)
- :m_type(type), m_code(code), m_description(description)
+parse_incomplete::parse_incomplete()
+ :parse_error("unterminated syntax")
 {
     
 }
 
-eval_error::operator bool()const
+command_error::command_error(const std::string & what)
+ :eval_error(what)
 {
-    return m_type != EVAL_OK;
+    
 }
-
-eval_error::operator eval_error_type()const
-{
-    return m_type;
-}
-
-eval_error_type eval_error::get_error_type()const
-{
-    return m_type;
-}
-
-int eval_error::get_error_code()const
-{
-    return m_code;
-}
-
-const std::string & eval_error::get_description()const
-{
-    return m_description;
-}
-
-class null_command_stack:public command_stack
-{
-public:
-    virtual std::size_t push_command(){return 0;}
-    virtual void push_argument_symbol(const char *, std::size_t){}
-    virtual void push_argument(){}
-    virtual void push_argument(bool){}
-    virtual void push_argument(int){}
-    virtual void push_argument(float){}
-    virtual void push_argument(const char *, std::size_t){}
-    virtual std::string pop_string(){return "";}
-    virtual void call(std::size_t){}
-};
 
 bool is_complete_code(const char * start, const char * end)
 {
+    class null_command_stack:public command_stack
+    {
+    public:
+        virtual std::size_t push_command(){return 0;}
+        virtual void push_argument_symbol(const char *, std::size_t){}
+        virtual void push_argument(){}
+        virtual void push_argument(bool){}
+        virtual void push_argument(int){}
+        virtual void push_argument(float){}
+        virtual void push_argument(const char *, std::size_t){}
+        virtual std::string pop_string(){return "";}
+        virtual void call(std::size_t){}
+    };
+    
     try
     {
         null_command_stack null_command;
         eval(&start, end, null_command);
     }
-    catch(const eval_error & error)
+    catch(parse_incomplete)
     {
-        return error.get_error_code() != PARSE_UNTERMINATED;
+        return false;
+    }
+    catch(eval_error)
+    {
+        // Let other types of errors be caught by the real evaluator
     }
     return true;
 }

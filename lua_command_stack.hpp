@@ -48,6 +48,7 @@ private:
 namespace lua{
 
 int eval(lua_State * L);
+int is_complete_code(lua_State * L);
 
 /*
     For implementing command stacks in Lua

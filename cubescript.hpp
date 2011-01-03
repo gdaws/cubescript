@@ -24,42 +24,13 @@
 
 #include <cstddef>
 #include <string>
+#include <stdexcept>
 
 namespace cubescript{
 
-enum eval_error_type
-{
-    EVAL_OK = 0,
-    EVAL_PARSE_ERROR,
-    EVAL_RUNTIME_ERROR
-};
-
-enum parse_errors
-{
-    PARSE_OK = 0,            // No errors
-    PARSE_UNTERMINATED,      // Parse was incomplete
-    PARSE_INVALID_CHARACTER, // Unknown character
-    PARSE_EXPECTED,          // Expected a character sequence
-    PARSE_UNEXPECTED         // Unexpected character (used in the wrong place) 
-};
-
-class eval_error
-{
-public:
-    eval_error();
-
-    eval_error(eval_error_type, int, std::string);
-    operator bool()const;
-    operator eval_error_type()const;
-    eval_error_type get_error_type()const;
-    int get_error_code()const;
-    const std::string & get_description()const;
-private:
-    eval_error_type m_type;
-    int m_code;
-    std::string m_description;
-};
-
+/*
+    
+*/
 class command_stack
 {
 public:
@@ -74,6 +45,7 @@ public:
     virtual void call(std::size_t)=0;
 };
 
+
 void eval_word(const char **, const char*, command_stack &);
 void eval_string(const char **, const char*, command_stack &);
 void eval_multiline_string(const char **, const char *, command_stack &);
@@ -81,9 +53,40 @@ void eval_symbol(const char **, const char *, command_stack &);
 void eval_comment(const char **, const char *, command_stack &);
 void eval_expression(const char **, const char *, command_stack &, 
                            bool is_sub_expression = false);
+
+/*
+    
+*/
 void eval(const char **, const char *, command_stack &);
 
-bool is_complete_code(const char *, const char *);
+/*
+    
+*/
+bool is_complete_code(const char * start, const char * end);
+
+class eval_error:public std::runtime_error
+{
+public:
+    eval_error(const std::string &);    
+};
+
+class parse_error:public eval_error
+{
+public:
+    parse_error(const std::string &);
+};
+
+class parse_incomplete:public parse_error
+{
+public:
+    parse_incomplete();
+};
+
+class command_error:public eval_error
+{
+public:
+    command_error(const std::string &);
+};
 
 } //namespace cubescript
 
