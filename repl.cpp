@@ -56,6 +56,7 @@ int main(int, char**)
     luaL_Reg cubescript_functions[] = {
         {"eval", cubescript::lua::eval},
         {"command_stack", &cubescript::lua::proxy_command_stack::create},
+        {"is_complete_expression", &cubescript::lua::is_complete_code},
         {NULL, NULL}
     };
     luaL_register(L, "cubescript", cubescript_functions);
@@ -91,21 +92,28 @@ int main(int, char**)
         int print_function = lua_command.push_command();
         lua_rawgeti(L, LUA_REGISTRYINDEX, print_function_ref);
         
+        
+        bool discard_stack = false;
+        
         try
         {
             cubescript::eval(&code_c_str, code_c_str_end, lua_command);
         }
-        catch(const cubescript::eval_error & error)
+        catch(const cubescript::parse_error & error)
         {
-            if(error.get_error_type() == cubescript::EVAL_PARSE_ERROR)
-                std::cout<<"Parse error: "<<error.get_description()<<std::endl;
-            /*else if(error.get_error_type() == cubescript::EVAL_RUNTIME_ERROR)
-             std::cout<<"Runtime error: "<<error.get_description()<<std::endl;*/
+            std::cout<<"Parse error: "<<error.what()<<std::endl;
+            discard_stack = true;
+        }
+        catch(const cubescript::eval_error &)
+        {
+            discard_stack = true;
         }
         
-        if(lua_gettop(L) > bottom + 1)
+        int stack_size = lua_gettop(L);
+        
+        if(stack_size > bottom + 1 && !discard_stack)
             lua_command.call(print_function);
-        else lua_pop(L, 1);
+        else lua_pop(L, stack_size - bottom);
         
         lua_pop(L, 1); // env_table_ref
         
