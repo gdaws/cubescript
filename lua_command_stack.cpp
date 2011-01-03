@@ -60,6 +60,9 @@ void lua_command_stack::push_argument_symbol(const char * value,
         
         for(; end != end_of_string && *end !='.'; end++);
         
+        if(end - start == 0)
+            throw parse_error("invalid id given for lua index operator");
+        
         lua_pushlstring(m_state, start, end - start);
         lua_gettable(m_state, -2);
         lua_replace(m_state, -2);
