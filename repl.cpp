@@ -20,24 +20,10 @@ static int set_env_table(lua_State * L)
     return 0;
 }
 
-static int onerror(lua_State * L)
-{
-    lua_rawgeti(L, LUA_REGISTRYINDEX, debug_traceback_function_ref);
-    lua_pushvalue(L, -2);
-    lua_pushinteger(L, 2);
-    lua_pcall(L, 2, 1, 0);
-    
-    std::cout<<lua_tostring(L, -1)<<std::endl;
-    
-    return 0;
-}
-
 int main(int, char**)
 {
     lua_State * L = luaL_newstate();
     luaL_openlibs(L);
-    
-    lua::set_error_handler(L, onerror);
     
     lua_getglobal(L, "print");
     if(lua_type(L, -1) != LUA_TFUNCTION)
@@ -104,8 +90,9 @@ int main(int, char**)
             std::cout<<"Parse error: "<<error.what()<<std::endl;
             discard_stack = true;
         }
-        catch(const cubescript::eval_error &)
+        catch(const cubescript::eval_error & error)
         {
+            std::cout<<"Command error: "<<error.what()<<std::endl;
             discard_stack = true;
         }
         
