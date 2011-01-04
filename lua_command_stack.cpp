@@ -137,23 +137,17 @@ void lua_command_stack::call(std::size_t index)
         return;
     }
     
-    int status = ::lua::pcall(m_state, top - index, LUA_MULTRET);
+    lua_pushcfunction(m_state, ::lua::save_traceback);
+    lua_insert(m_state, 1);
+    
+    int status = lua_pcall(m_state, top - index, LUA_MULTRET, 1);
+    
+    lua_remove(m_state, 1);
     
     if(status != 0)
     {
-        int returned = lua_gettop(m_state) - top + 1;
-        std::string message;
-        
-        if(returned > 0)
-        {
-            const char * message_on_stack = lua_tostring(m_state, -1);
-            message = (message_on_stack ? 
-                message_on_stack : "no error message");
-            lua_pop(m_state, returned);
-        }
-        else message = "no error message";
-        
-        throw command_error(message);
+        ::lua::push_traceback(m_state);
+        throw command_error(lua_tostring(m_state, -1));
     }
 }
 
