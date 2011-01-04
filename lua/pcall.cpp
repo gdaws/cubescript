@@ -53,6 +53,69 @@ lua_CFunction get_pcall_error_function()
     return error_handler;
 }
 
+static int error_info_ref = LUA_NOREF;
+
+int save_error_info(lua_State * L)
+{
+    lua_newtable(L);
+    
+    lua_pushliteral(L, "message");
+    lua_pushvalue(L, 1);
+    lua_settable(L, -3);
+    
+    if(error_info_ref == LUA_NOREF)
+        error_info_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    else
+        lua_rawseti(L, LUA_REGISTRYINDEX, error_info_ref);
+    
+    return 1;
+}
+
+int push_error_info(lua_State * L)
+{
+    if(error_info_ref == LUA_NOREF) return 0;
+    lua_rawgeti(L, LUA_REGISTRYINDEX, error_info_ref);
+    return 1;
+}
+
+static int traceback_ref = LUA_NOREF;
+
+int save_traceback(lua_State * L)
+{
+    lua_getglobal(L, "debug");
+    if(lua_type(L, -1) != LUA_TTABLE)
+    {
+        lua_pop(L, 1);
+        return 1;
+    }
+    
+    lua_getfield(L, -1, "traceback");
+    if(lua_type(L, -1) != LUA_TFUNCTION)
+    {
+        lua_pop(L, 1);
+        return 1;
+    }
+    
+    lua_pushvalue(L, -3);
+    lua_pushinteger(L, 2);
+    lua_pcall(L, 2, 1, 0);
+    
+    if(traceback_ref == LUA_NOREF) 
+        traceback_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    else lua_rawseti(L, LUA_REGISTRYINDEX, traceback_ref);
+    
+    lua_pop(L, 1);
+    
+    return 1;
+}
+
+int push_traceback(lua_State * L)
+{
+    if(traceback_ref == LUA_NOREF) return 0;
+    lua_rawgeti(L, LUA_REGISTRYINDEX, traceback_ref);
+    return 1;
+}
+
 bool is_callable(lua_State * L, int index)
 {
     int type = lua_type(L, index);
