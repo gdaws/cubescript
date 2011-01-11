@@ -28,9 +28,6 @@
 
 namespace cubescript{
 
-/*
-    
-*/
 class command_stack
 {
 public:
@@ -45,7 +42,6 @@ public:
     virtual void call(std::size_t)=0;
 };
 
-
 void eval_word(const char **, const char*, command_stack &);
 void eval_string(const char **, const char*, command_stack &);
 void eval_multiline_string(const char **, const char *, command_stack &);
@@ -55,14 +51,22 @@ void eval_expression(const char **, const char *, command_stack &,
                            bool is_sub_expression = false);
 
 /*
-    
-*/
-void eval(const char **, const char *, command_stack &);
-
-/*
-    
+    Parse the input string as Cubescript code to determine if the input string
+    contains the code for a complete expression starting from the beginning of 
+    the string. In most cases, calling this function and having it return true 
+    is a prerequisite for calling eval(). If there's no further input to add
+    to the current input string (i.e. end of file) then call eval() and let the
+    parse error be thrown.
 */
 bool is_complete_code(const char * start, const char * end);
+
+/*
+    Evaluate the input string as Cubescript code. Each expression is pushed
+    and called on the command stack. The return value from the last command call
+    is left on the command stack. Parse errors and errors in command stack 
+    operations throw exceptions derived from the eval_error class.
+*/
+void eval(const char **, const char *, command_stack &);
 
 class eval_error:public std::runtime_error
 {

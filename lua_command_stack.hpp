@@ -47,7 +47,14 @@ private:
 
 namespace lua{
 
+/*
+    A lua wrapper function for eval().
+*/
 int eval(lua_State * L);
+
+/*
+    A lua wrapper function for is_complete_code().
+*/
 int is_complete_code(lua_State * L);
 
 /*
