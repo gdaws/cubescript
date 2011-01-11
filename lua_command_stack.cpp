@@ -128,6 +128,44 @@ std::string lua_command_stack::pop_string()
     return output;
 }
 
+static int on_runtime_error(lua_State * L)
+{
+    // Enclosing the error message in a table stops subsequent runtime error
+    // functions from altering the error message argument. This is useful for
+    // preserving an error message from the source nested pcall.
+
+    if(lua_type(L, 1) != LUA_TTABLE)
+    {
+        lua_getglobal(L, "debug");
+        if(lua_type(L, -1) != LUA_TTABLE)
+        {
+            lua_pop(L, 1);
+            return 1;
+        }
+        
+        lua_getfield(L, -1, "traceback");
+        if(lua_type(L, -1) != LUA_TFUNCTION)
+        {
+            lua_pop(L, 1);
+            return 1;
+        }
+        
+        lua_pushvalue(L, 1);
+        lua_pushinteger(L, 2);
+        lua_pcall(L, 2, 1, 0);
+        
+        lua_newtable(L);
+        lua_pushinteger(L, 1);
+        lua_pushvalue(L, -3);
+        lua_settable(L, -3);
+        
+        return 1;
+    }
+    
+    lua_pushvalue(L, 1);
+    return 1;
+}
+
 void lua_command_stack::call(std::size_t index)
 {
     std::size_t top = lua_gettop(m_state);
@@ -137,7 +175,7 @@ void lua_command_stack::call(std::size_t index)
         return;
     }
     
-    lua_pushcfunction(m_state, ::lua::save_traceback);
+    lua_pushcfunction(m_state, on_runtime_error);
     lua_insert(m_state, 1);
     
     int status = lua_pcall(m_state, top - index, LUA_MULTRET, 1);
@@ -146,8 +184,23 @@ void lua_command_stack::call(std::size_t index)
     
     if(status != 0)
     {
-        ::lua::push_traceback(m_state);
-        throw command_error(lua_tostring(m_state, -1));
+        const char * error_message_c_str = NULL;
+        
+        if(lua_type(m_state, -1) == LUA_TTABLE)
+        {
+            lua_pushinteger(m_state, 1);
+            lua_gettable(m_state, -2);
+        }
+        
+        error_message_c_str = lua_tostring(m_state, -1);
+        
+        std::string error_message;
+        if(error_message_c_str)
+            error_message = error_message_c_str;
+        
+        lua_pop(m_state, lua_gettop(m_state) - index);
+        
+        throw command_error(error_message);
     }
 }
 

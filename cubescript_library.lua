@@ -544,8 +544,8 @@ local function execute_cubescript(filename)
                 
                 cleanup()
                 
-                error(string.format("%s:%i: %s", 
-                    filename, line_number, error_message), 0)
+                error({string.format("%s:%i: %s", 
+                    filename, line_number, error_message), 0})
             end
             
             expression = ""
