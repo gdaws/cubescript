@@ -101,6 +101,7 @@ env["array"] = function(...)
 end
 
 env["len"] = function(object) return #object end
+env["listlen"] = env["len"]
 
 env["at"] = function(object, index)
     
@@ -113,17 +114,80 @@ end
 
 -- String
 
-env["@"] = function(...)
+local function implode(pieces, glue)
+    glue = glue or ""
     local output = ""
-    for i = 1, #arg do 
-        output = output .. tostring(arg[i])
+    for i = 1, #pieces do
+        if i > 1 then
+            output = output .. glue
+        end
+        output = output .. tostring(pieces[i])
     end
+    return output
+end
+
+env["@"] = function(...)
+    return implode(arg)
+end
+
+env["substr"] = function(s, start, length)
+    if length == 0 then return "" end
+    return string.sub(s, start, start + length - 1)
+end
+
+env["strstr"] = function(s, substring)
+   local position = string.find(s, substring, 1, true)
+   if not position then return -1 end
+   return position - 1
+end
+
+env["strreplace"] = function(s, find, replacement)
+
+    local output = ""
+    
+    local find_length = #find
+    
+    local start_position = 1
+    local insert_position = string.find(s, find, 1, true)
+
+    while insert_position do
+        
+        output = output .. 
+                 string.sub(s, start_position, insert_position - 1) ..
+                 replacement
+        
+        start_position = insert_position + find_length
+        insert_position = string.find(s, find, start_position, true)
+    end
+    
+    output = output .. string.sub(s, start_position)
+    
+    return output
+end
+
+env["format"] = function(s, ...)
+    local output = string.gsub(s, "%%[%w_]+", function(id)
+        id = string.sub(id, 2)
+        local index = tonumber(id)
+        if index and arg[index] then
+            return arg[index]
+        else
+            if arg[1] and type(arg[1]) == "table" then
+                return arg[1][id] or ""
+            else
+                return ""
+            end
+        end
+    end)
     return output
 end
 
 env["strlen"] = string.len
 env["strcmp"] = env["="]
 env["strcat"] = env["@"]
+env["concatword"] = env["@"]
+env["concat"] = function(...) return implode(arg, " ") end
+env["implode"] = implode
 
 env["def"] = function(name, value)
    _G[name] = value
