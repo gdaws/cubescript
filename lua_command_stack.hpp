@@ -27,12 +27,27 @@
 
 namespace cubescript{
 
+/**
+    A command stack implementation for Lua.
+*/
 class lua_command_stack:public command_stack
 {
 public:
-    lua_command_stack(lua_State *, int table_index);
+    /**
+        @param table_index Index value to a table on the given Lua stack to be
+               used as the environment for this command stack.
+    */
+    lua_command_stack(lua_State * L, int table_index);
+    
     std::size_t push_command();
-    void push_argument_symbol(const char *, std::size_t);
+    
+    /**
+        Lookup a variable name in the table and then push the variable's value 
+        to the top of the stack. Names with sub keys are supported with the 
+        Lua-like syntax, "name.subname.subname".
+    */
+    void push_argument_symbol(const char * id, std::size_t id_length);
+    
     void push_argument();
     void push_argument(bool);
     void push_argument(int);
@@ -47,18 +62,21 @@ private:
 
 namespace lua{
 
-/*
-    A lua wrapper function for eval().
+/**
+    A lua wrapper function for eval() (declared in cubescript.hpp).
 */
 int eval(lua_State * L);
 
-/*
-    A lua wrapper function for is_complete_code().
+/**
+    A lua wrapper function for is_complete_code() (declared in cubescript.hpp)
 */
 int is_complete_code(lua_State * L);
 
-/*
-    For implementing command stacks in Lua
+/**
+    For implementing command stacks in Lua code
+    
+    Used by the Cubescript runtime library for translating Cubescript code to 
+    Lua code.
 */
 class proxy_command_stack:public command_stack
 {
