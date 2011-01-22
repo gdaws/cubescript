@@ -48,7 +48,7 @@ static const token_id symbols[] =
     ERROR, WHITESPACE, END_ROOT_EXPRESSION, ERROR, ERROR, END_ROOT_EXPRESSION, ERROR, ERROR, 
     ERROR, ERROR, ERROR, ERROR, ERROR, ERROR, ERROR, ERROR, 
     ERROR, ERROR, ERROR, ERROR, ERROR, ERROR, ERROR, ERROR, 
-    WHITESPACE, CHAR, START_END_STRING, CHAR, START_SYMBOL, CHAR, CHAR, CHAR, 
+    WHITESPACE, CHAR, START_END_STRING, START_COMMENT, START_SYMBOL, CHAR, CHAR, CHAR, 
     START_EXPRESSION, END_EXPRESSION, CHAR, CHAR, CHAR, CHAR, CHAR, START_COMMENT, 
     CHAR, CHAR, CHAR, CHAR, CHAR, CHAR, CHAR, CHAR, 
     CHAR, CHAR, CHAR, END_ROOT_EXPRESSION, CHAR, CHAR, CHAR, CHAR, 
@@ -431,7 +431,7 @@ void eval_comment(const char ** source_begin,
                   const char * source_end,
                   command_stack & command)
 {
-    assert(**source_begin == '/');
+    assert(**source_begin == '/' || **source_begin == '#');
     const char * start = (*source_begin) + 1;
     *source_begin = start;
     
