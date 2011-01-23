@@ -622,6 +622,11 @@ local function execute_cubescript(filename)
     cleanup()
 end
 
+env["exec_type"] = {
+    lua = dofile,
+    conf = execute_cubescript
+}
+
 env["exec_search_paths"] = {}
 
 env["exec_stack"] = {}
