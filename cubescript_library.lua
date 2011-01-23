@@ -622,19 +622,66 @@ local function execute_cubescript(filename)
     cleanup()
 end
 
-env["exec_type"] = {
-    lua = dofile,
-    cfg = execute_cubescript,
-    conf = execute_cubescript
-}
+env["exec_search_paths"] = {}
+
+env["exec_stack"] = {}
 
 env["exec"] = function(filename)
+
+    function is_readable(filename)
+        local file = io.open(filename)
+        if file then
+            file:close()
+            return true
+        else return false end
+    end
+    
+    function search_filename(parent_dir, filename)
+        
+        local relative_to_parent = parent_dir .. filename
+        
+        if is_readable(filename) then return filename, "" end
+        if is_readable(relative_to_parent) then return relative_to_parent, parent_dir end
+        
+        local search_paths = env.exec_search_paths
+        for _, path in pairs(search_paths) do
+            local revised = path .. "/" .. filename
+            if is_readable(revised) then return revised, string.match(revised,  "(.*)/.*$") end
+        end
+        
+        return filename, ""
+    end
+    
+    local dir = ""
+    local exec_stack = env.exec_stack
+    
+    if string.sub(dir, 1, 1) ~= "/" then
+        local parent_dir = (exec_stack[#exec_stack] and exec_stack[#exec_stack].dir .. "/") or ""
+        filename, dir = search_filename(parent_dir, filename)
+    end
+    
     local file_type = string.match(filename, "[^.]*$")
     local exec_script_function = env.exec_type[file_type]
+    
     if not exec_script_function then
         error("unknown script file type for '" .. filename .. "'")
     end
-    exec_script_function(filename)
+    
+    exec_stack[#exec_stack + 1] = {
+        filename = filename, 
+        dir = dir
+    }
+    
+    local pcall_results = (function(...) return arg end)(pcall(exec_script_function, filename))
+    
+    exec_stack[#exec_stack] = nil
+    
+    if pcall_results[1] == false then
+        error(pcall_results[2], 0)
+    end
+    
+    table.remove(pcall_results, 1)
+    return unpack(pcall_results)
 end
 
 return env
